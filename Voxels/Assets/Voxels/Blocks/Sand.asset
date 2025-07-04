@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ac7759ce6f67c74fbeba200c8000b96, type: 3}
+  m_Name: Sand
+  m_EditorClassIdentifier: 
+  vertexColor: {r: 0.9647059, g: 0.84705883, b: 0.5882353, a: 1}
+  mainTex: {fileID: 2800000, guid: 3fe07364aabd3bc4886db1ad4d606caf, type: 3}
+  backText: {fileID: 2800000, guid: 3fe07364aabd3bc4886db1ad4d606caf, type: 3}
+  topTex: {fileID: 2800000, guid: 3fe07364aabd3bc4886db1ad4d606caf, type: 3}
+  bottomTex: {fileID: 2800000, guid: 3fe07364aabd3bc4886db1ad4d606caf, type: 3}
+  leftTex: {fileID: 2800000, guid: 3fe07364aabd3bc4886db1ad4d606caf, type: 3}
+  rightTex: {fileID: 2800000, guid: 3fe07364aabd3bc4886db1ad4d606caf, type: 3}
+  textureAtlasPos:
+    serializedVersion: 2
+    x: 0
+    y: 0.5
+    width: 0.25
+    height: 0.5
+  textureAtlasPos_back:
+    serializedVersion: 2
+    x: 0
+    y: 0.5
+    width: 0.25
+    height: 0.5
+  textureAtlasPos_left:
+    serializedVersion: 2
+    x: 0
+    y: 0.5
+    width: 0.25
+    height: 0.5
+  textureAtlasPos_right:
+    serializedVersion: 2
+    x: 0
+    y: 0.5
+    width: 0.25
+    height: 0.5
+  textureAtlasPos_top:
+    serializedVersion: 2
+    x: 0
+    y: 0.5
+    width: 0.25
+    height: 0.5
+  textureAtlasPos_bottom:
+    serializedVersion: 2
+    x: 0
+    y: 0.5
+    width: 0.25
+    height: 0.5
