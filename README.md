@@ -25,3 +25,6 @@ In the Spline field, you can manipulate the spline to represent how terrain heig
   * Imagine the x-value of 0 as the bottom of the ocean
   * y = 20 is coastline
 
+Below is a good example for a Contentalness to Height spline:\
+<img width="317" height="584" alt="Image" src="https://github.com/user-attachments/assets/b0e81106-6bb7-412e-b97f-dab4c46b005d" />
+
