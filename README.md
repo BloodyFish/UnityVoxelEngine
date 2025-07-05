@@ -1,6 +1,6 @@
 # UnityVoxelEngine
 This is my first voxel implementation in Unity. It is still a work in progress. 
-![alt text](https://www.reddit.com/media?url=https%3A%2F%2Fpreview.redd.it%2Fgreedy-meshing-update-it-works-unity-v0-iygy5hi37kaf1.png%3Fwidth%3D640%26crop%3Dsmart%26auto%3Dwebp%26s%3Df99d40a471c0629d508bf21c86a306be5aa2f473)
+<img width="864" height="542" alt="Image" src="https://github.com/user-attachments/assets/8a1b4361-768d-4e04-86d1-e75ff227bcd2" />
 
 ## Setting it up
 There a couple of things you need to set up before a voxel world is created
