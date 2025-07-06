@@ -2,7 +2,7 @@
 This is my first voxel implementation in Unity. It is still a work in progress. 
 <img width="864" height="542" alt="Image" src="https://github.com/user-attachments/assets/8a1b4361-768d-4e04-86d1-e75ff227bcd2" />
 
-### In progress...
+### 👀 In progress...
 TBA
 
 ## Setting it up
