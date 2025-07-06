@@ -2,6 +2,9 @@
 This is my first voxel implementation in Unity. It is still a work in progress. 
 <img width="864" height="542" alt="Image" src="https://github.com/user-attachments/assets/8a1b4361-768d-4e04-86d1-e75ff227bcd2" />
 
+### In progress...
+Currently working on adding seed customization to make unique worlds!
+
 ## Setting it up
 There a couple of things you need to set up before a voxel world is created
  1. Create an empty Game Object. You can call it anything, but something like *GenerationManager* can help with organization
