@@ -1,4 +1,6 @@
+using System;
 using Unity.Mathematics;
+using UnityEngine;
 
 public class Noise
 {
@@ -20,14 +22,20 @@ public class Noise
 
     public float GetNoise(float x, float y, int expansion)
     {
+        System.Random rand = new System.Random(Generation.instance.seed.GetHashCode()); // Convert the long seed into a unique int
+        float randNumX = rand.Next(-10000, 10000); // First number in sequence
+        float randNumY = rand.Next(-10000, 10000); // Second number in sequence
+        float2 offset = new float2(randNumX, randNumY);
+
         float raw = 0;
+        float2 value = new float2(x / width, y / length) * scale + offset;
         switch (chosenNoiseType)
         {
             case NoiseType.PERLIN:
-                raw = noise.cnoise(new float2(x / width * scale, y / length * scale)); // Returns [-1, 1];
+                raw = noise.cnoise(value); // Returns [-1, 1];
                 break;
             case NoiseType.SIMPLEX:
-                raw = noise.snoise(new float2(x / width * scale, y / length * scale));
+                raw = noise.snoise(value);
                 break;
         }
 
