@@ -2,8 +2,8 @@
 This is my first voxel implementation in Unity. It is still a work in progress. 
 <img width="864" height="542" alt="Image" src="https://github.com/user-attachments/assets/8a1b4361-768d-4e04-86d1-e75ff227bcd2" />
 
-### In progress...
-Currently working on adding seed customization to make unique worlds!
+### 👀 In progress...
+🏃 Making generation _faster!_
 
 ## Setting it up
 There a couple of things you need to set up before a voxel world is created
@@ -11,6 +11,8 @@ There a couple of things you need to set up before a voxel world is created
  2. Add the Generation script to the empty object
  3. Add a `Block List`, `Contentalness To Height` spline, `Terrain Material`, specify whether or not you want to `Use Greedy Meshing` (it is recommended), and then add the `Main Block`,  `Underwater Block`, `Stone Block `, and `Dirt Block
     * The terrain material, `TerrainMat` is in the `Shaders` folder
+ 4. **(Optional)** Input whatever you want for your seed in the `Input Seed` field! This can be a int or a string. A float will be converted to a string.
+    * If left blank, a random seed will be generated
 
 ## 📋 Setting up a Block List
 In the `Blocks` folder, right click, *Create > VoxelStuff > BlockList* you can name it whatever you like (Recomended: *BlockList*)\
