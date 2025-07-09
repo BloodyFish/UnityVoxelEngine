@@ -1,2 +1,18 @@
 fileFormatVersion: 2
 guid: ece66b02246203c45951653135a8fb29
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - blockList: {instanceID: 0}
+  - contenentalnessToHeight: {instanceID: 0}
+  - terrainMat: {instanceID: 0}
+  - mainBlock: {instanceID: 0}
+  - underwaterBlock: {instanceID: 0}
+  - stoneBlock: {instanceID: 0}
+  - dirtBlock: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -14,7 +14,7 @@ public class Spline : ScriptableObject
     {
         // Slope = (y2 - y1) / (x2 - x1)
         float x1 = x - 0.01f;
-        float x2 = x + 0.01f; ;
+        float x2 = x + 0.01f;
         float y1 = spline.Evaluate(x1);
         float y2 = spline.Evaluate(x2);
 

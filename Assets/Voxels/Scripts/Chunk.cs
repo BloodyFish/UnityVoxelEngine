@@ -82,35 +82,6 @@ public class Chunk : IComparable<Chunk>
         }
     }
 
-    public static void InititalizeChunks()
-    {
-        for (int x = 0; x < 16; x++)
-        {
-            for(int z = 0; z < 16; z++)
-            {
-                // Create our "main chunk"
-                new Chunk(new Vector3(x, 0, z));
-            }
-        }
-
-        foreach (Chunk chunk in chunks.Values)
-        {
-            chunk.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
-            chunk.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
-            chunk.chunkObj.transform.position = chunk.chunkPos;
-
-            if (Generation.instance.useGreedyMeshing)
-            {
-                VoxelManager.GreedyMesh(chunk);
-            }
-            else
-            {
-                VoxelManager.SetVoxels(chunk);
-            }
-        }
-
-    }
-
     public static Chunk GetChunkFromCoords(int x, int y, int z)
     {
         Chunk chunk = null;

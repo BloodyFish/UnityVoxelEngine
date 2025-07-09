@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem.Controls;
 
@@ -11,7 +12,6 @@ public class Generation : MonoBehaviour
     public static float BLOCK_SIZE = 0.25f;
     public BlockList blockList;
     public Spline contenentalnessToHeight;
-    public bool useGreedyMeshing = false;
     public Material terrainMat;
     public Block mainBlock, underwaterBlock, stoneBlock, dirtBlock;
 
@@ -29,10 +29,37 @@ public class Generation : MonoBehaviour
         contentalness_2 = new Noise(Chunk.CHUNK_WIDTH, Chunk.CHUNK_LENGTH, 0.1f, Noise.NoiseType.SIMPLEX);
         contentalness_3 = new Noise(Chunk.CHUNK_WIDTH, Chunk.CHUNK_LENGTH, 1f, Noise.NoiseType.SIMPLEX);
 
-        Chunk.InititalizeChunks();
-
+        //Chunk.InititalizeChunks();
+        StartCoroutine("InititalizeChunks");
     }
-    
+
+    private IEnumerator InititalizeChunks()
+    {
+        for (int x = 0; x < 16; x++)
+        {
+            for (int z = 0; z < 16; z++)
+            {
+                // Create our "main chunk"
+                Chunk chunk = new Chunk(new Vector3(x, 0, z));
+
+                chunk.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
+                chunk.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
+                chunk.chunkObj.transform.position = chunk.chunkPos;
+
+                VoxelManager.GreedyMesh(chunk);
+                foreach (Chunk adj_chunk in chunk.GetAdjacentChunks())
+                {
+                    if (adj_chunk != null)
+                    {
+                        VoxelManager.GreedyMesh(adj_chunk);
+                    }
+                }
+
+                yield return null;
+            }
+        }
+    }
+
     public void GenerateSeed()
     {
         if(string.IsNullOrWhiteSpace(inputSeed))
