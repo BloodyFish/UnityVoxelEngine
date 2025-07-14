@@ -56,26 +56,26 @@ public class VoxelManager
     {
         for (int y = Chunk.CHUNK_HEIGHT; y >= 0; y--)
         {
-            //Create a 2D array of the visible blocks:
-            byte[,] blocks = new byte[Chunk.CHUNK_WIDTH, Chunk.CHUNK_LENGTH];
+            //Create an array of the visible blocks:
+            byte[] blocks = new byte[Chunk.CHUNK_WIDTH * Chunk.CHUNK_LENGTH];
             for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
             {
                 for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
                 {
                     if (y < Chunk.CHUNK_HEIGHT - 1)
                     {
-                        if (chunk.blockArray[x, y + 1, z] > 0)
+                        if (chunk.blockArray1D[chunk.CalculateBlockIndex(x, y + 1, z)] > 0)
                         {
-                            blocks[x, z] = 0;
+                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = 0;
                         }
                         else
                         {
-                            blocks[x, z] = chunk.blockArray[x, y, z];
+                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
                         }
                     }
                     else if (y == Chunk.CHUNK_HEIGHT - 1)
                     {
-                        blocks[x, z] = chunk.blockArray[x, y, z];
+                        blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
                     }
                 }
             }
@@ -85,11 +85,11 @@ public class VoxelManager
             {
                 for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
                 {
-                    byte blockID = blocks[x, z];
+                    byte blockID = blocks[x + (Chunk.CHUNK_WIDTH * z)];
                     if (blockID == 0) { continue; }
 
                     int length = 0;
-                    while (z + length < Chunk.CHUNK_LENGTH && blocks[x, z + length] == blockID)
+                    while (z + length < Chunk.CHUNK_LENGTH && blocks[x + (Chunk.CHUNK_WIDTH * (z + length))] == blockID)
                     {
                         length++;
                     }
@@ -100,7 +100,7 @@ public class VoxelManager
                     {
                         for (int l = 0; l < length; l++)
                         {
-                            if (blocks[x + width, z + l] != blockID)
+                            if (blocks[(x + width) + (Chunk.CHUNK_WIDTH * (z + l))] != blockID)
                             {
                                 canExtend = false;
                                 break;
@@ -117,7 +117,7 @@ public class VoxelManager
                     {
                         for (int j = 0; j < length; j++)
                         {
-                            blocks[x + i, z + j] = 0;
+                            blocks[(x + i) + (Chunk.CHUNK_WIDTH * (z + j))] = 0;
                         }
                     }
 
@@ -149,26 +149,26 @@ public class VoxelManager
     {
         for (int y = 1; y < Chunk.CHUNK_HEIGHT - 1; y++) // We start at one becuase we don't actually need to render the bottom of the world. Who will see it?
         {
-            //Create a 2D array of the visible blocks:
-            byte[,] blocks = new byte[Chunk.CHUNK_WIDTH, Chunk.CHUNK_LENGTH];
+            //Create an array of the visible blocks:
+            byte[] blocks = new byte[Chunk.CHUNK_WIDTH * Chunk.CHUNK_LENGTH];
             for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
             {
                 for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
                 {
                     if (y > 0)
                     {
-                        if (chunk.blockArray[x, y - 1, z] > 0)
+                        if(chunk.blockArray1D[chunk.CalculateBlockIndex(x, y - 1, z)] > 0)
                         {
-                            blocks[x, z] = 0;
+                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = 0;
                         }
                         else
                         {
-                            blocks[x, z] = chunk.blockArray[x, y, z];
+                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
                         }
                     }
                     else if (y == 0)
                     {
-                        blocks[x, z] = chunk.blockArray[x, y, z];
+                        blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
                     }
                 }
             }
@@ -177,11 +177,11 @@ public class VoxelManager
             {
                 for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
                 {
-                    byte blockID = blocks[x, z];
+                    byte blockID = blocks[x + (Chunk.CHUNK_WIDTH * z)];
                     if (blockID == 0) { continue; }
 
                     int length = 0;
-                    while (z + length < Chunk.CHUNK_LENGTH && blocks[x, z + length] == blockID)
+                    while (z + length < Chunk.CHUNK_LENGTH && blocks[x + (Chunk.CHUNK_WIDTH * (z + length))] == blockID)
                     {
                         length++;
                     }
@@ -192,7 +192,7 @@ public class VoxelManager
                     {
                         for (int l = 0; l < length; l++)
                         {
-                            if (blocks[x + width, z + l] != blockID)
+                            if (blocks[(x + width) + (Chunk.CHUNK_WIDTH * (z + l))] != blockID)
                             {
                                 canExtend = false;
                                 break;
@@ -209,7 +209,7 @@ public class VoxelManager
                     {
                         for (int j = 0; j < length; j++)
                         {
-                            blocks[x + i, z + j] = 0;
+                            blocks[(x + i) + (Chunk.CHUNK_WIDTH * (z + j))] = 0;
                         }
                     }
 
@@ -243,32 +243,33 @@ public class VoxelManager
         {
             if (x == Chunk.CHUNK_WIDTH - 1 && chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT] == null) { continue; }
 
-            //Create a 2D array of the visible blocks:
-            byte[,] blocks = new byte[Chunk.CHUNK_WIDTH, Chunk.CHUNK_HEIGHT];
+            //Create an array of the visible blocks:
+            byte[] blocks = new byte[Chunk.CHUNK_LENGTH * Chunk.CHUNK_HEIGHT];
             for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
             {
                 for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
                 {
                     if (x < Chunk.CHUNK_WIDTH - 1)
                     {
-                        if (chunk.blockArray[x + 1, y, z] > 0)
+                        if(chunk.blockArray1D[chunk.CalculateBlockIndex(x + 1, y, z)] > 0)
                         {
-                            blocks[z, y] = 0;
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[z, y] = chunk.blockArray[x, y, z];
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
                         }
                     }
                     else if (x == Chunk.CHUNK_WIDTH - 1)
                     {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT]?.blockArray[0, y, z] > 0)
+                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT]?.blockArray1D[chunk.CalculateBlockIndex(0, y, z)] > 0)
                         {
-                            blocks[z, y] = 0;
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[z, y] = chunk.blockArray[x, y, z];
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+
                         }
                     }
                 }
@@ -278,11 +279,11 @@ public class VoxelManager
             {
                 for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
                 {
-                    byte blockID = blocks[z, y];
+                    byte blockID = blocks[z + (Chunk.CHUNK_LENGTH * y)];
                     if (blockID == 0) { continue; }
 
                     int height = 0;
-                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[z, y + height] == blockID)
+                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[z + (Chunk.CHUNK_LENGTH * (y + height))] == blockID)
                     {
                         height++;
                     }
@@ -293,7 +294,7 @@ public class VoxelManager
                     {
                         for (int h = 0; h < height; h++)
                         {
-                            if (blocks[z + length, y + h] != blockID)
+                            if (blocks[(z + length) + (Chunk.CHUNK_LENGTH * (y + h))] != blockID)
                             {
                                 canExtend = false;
                                 break;
@@ -310,7 +311,7 @@ public class VoxelManager
                     {
                         for (int j = 0; j < height; j++)
                         {
-                            blocks[z + i, y + j] = 0;
+                            blocks[(z + i) + (Chunk.CHUNK_LENGTH * (y + j))] = 0;
                         }
                     }
                     // GENERATE QUAD
@@ -342,32 +343,34 @@ public class VoxelManager
         {
             if (x == 0 && chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT] == null) { continue; }
 
-            //Create a 2D array of the visible blocks:
-            byte[,] blocks = new byte[Chunk.CHUNK_WIDTH, Chunk.CHUNK_HEIGHT];
+            //Create an array of the visible blocks:
+            byte[] blocks = new byte[Chunk.CHUNK_LENGTH * Chunk.CHUNK_HEIGHT];
             for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
             {
                 for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
                 {
                     if (x > 0)
                     {
-                        if (chunk.blockArray[x - 1, y, z] > 0)
+                        if (chunk.blockArray1D[chunk.CalculateBlockIndex(x - 1, y, z)] > 0)
+
                         {
-                            blocks[z, y] = 0;
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[z, y] = chunk.blockArray[x, y, z];
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
                         }
                     }
                     else if (x == 0)
                     {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT]?.blockArray[Chunk.CHUNK_WIDTH - 1, y, z] > 0)
+                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT]?.blockArray1D[chunk.CalculateBlockIndex(Chunk.CHUNK_WIDTH - 1, y, z)] > 0)
                         {
-                            blocks[z, y] = 0;
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[z, y] = chunk.blockArray[x, y, z];
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+
                         }
                     }
                 }
@@ -377,11 +380,11 @@ public class VoxelManager
             {
                 for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
                 {
-                    byte blockID = blocks[z, y];
+                    byte blockID = blocks[z + (Chunk.CHUNK_LENGTH * y)];
                     if (blockID == 0) { continue; }
 
                     int height = 0;
-                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[z, y + height] == blockID)
+                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[z + (Chunk.CHUNK_LENGTH * (y + height))] == blockID)
                     {
                         height++;
                     }
@@ -392,7 +395,7 @@ public class VoxelManager
                     {
                         for (int h = 0; h < height; h++)
                         {
-                            if (blocks[z + length, y + h] != blockID)
+                            if (blocks[(z + length) + (Chunk.CHUNK_LENGTH * (y + h))] != blockID)
                             {
                                 canExtend = false;
                                 break;
@@ -409,7 +412,7 @@ public class VoxelManager
                     {
                         for (int j = 0; j < height; j++)
                         {
-                            blocks[z + i, y + j] = 0;
+                            blocks[(z + i) + (Chunk.CHUNK_LENGTH * (y + j))] = 0;
                         }
                     }
                     // GENERATE QUAD
@@ -441,32 +444,35 @@ public class VoxelManager
         {
             if (z == 0 && chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK] == null) { continue; }
 
-            //Create a 2D array of the visible blocks:
-            byte[,] blocks = new byte[Chunk.CHUNK_WIDTH, Chunk.CHUNK_HEIGHT];
+            //Create an array of the visible blocks:
+            byte[] blocks = new byte[Chunk.CHUNK_WIDTH * Chunk.CHUNK_HEIGHT];
             for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
             {
                 for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
                 {
                     if (z > 0)
                     {
-                        if (chunk.blockArray[x, y, z - 1] > 0)
+                        if (chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z - 1)] > 0)
+
                         {
-                            blocks[x, y] = 0;
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[x, y] = chunk.blockArray[x, y, z];
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+
                         }
                     }
                     else if (z == 0)
                     {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK]?.blockArray[x, y, Chunk.CHUNK_LENGTH - 1] > 0)
+                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK]?.blockArray1D[chunk.CalculateBlockIndex(x, y, Chunk.CHUNK_LENGTH - 1)] > 0)
                         {
-                            blocks[x, y] = 0;
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[x, y] = chunk.blockArray[x, y, z];
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+
                         }
                     }
                 }
@@ -476,11 +482,11 @@ public class VoxelManager
             {
                 for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
                 {
-                    byte blockID = blocks[x, y];
+                    byte blockID = blocks[x + (Chunk.CHUNK_WIDTH * y)];
                     if (blockID == 0) { continue; }
 
                     int height = 0;
-                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[x, y + height] == blockID)
+                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[x + (Chunk.CHUNK_WIDTH * (y + height))] == blockID)
                     {
                         height++;
                     }
@@ -491,7 +497,7 @@ public class VoxelManager
                     {
                         for (int h = 0; h < height; h++)
                         {
-                            if (blocks[x + width, y + h] != blockID)
+                            if (blocks[(x + width) + (Chunk.CHUNK_WIDTH * (y + h))] != blockID)
                             {
                                 canExtend = false;
                                 break;
@@ -508,7 +514,7 @@ public class VoxelManager
                     {
                         for (int j = 0; j < height; j++)
                         {
-                            blocks[x + i, y + j] = 0;
+                            blocks[(x + i) + (Chunk.CHUNK_WIDTH * (y + j))] = 0;
                         }
                     }
 
@@ -542,32 +548,36 @@ public class VoxelManager
         {
             if (z == Chunk.CHUNK_LENGTH - 1 && chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD] == null) { continue; }
 
-            //Create a 2D array of the visible blocks:
-            byte[,] blocks = new byte[Chunk.CHUNK_WIDTH, Chunk.CHUNK_HEIGHT];
+            //Create an array of the visible blocks:
+            byte[] blocks = new byte[Chunk.CHUNK_WIDTH * Chunk.CHUNK_HEIGHT];
             for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
             {
                 for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
                 {
                     if (z < Chunk.CHUNK_LENGTH - 1)
                     {
-                        if (chunk.blockArray[x, y, z + 1] > 0)
+                        if (chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z + 1)] > 0)
+
                         {
-                            blocks[x, y] = 0;
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[x, y] = chunk.blockArray[x, y, z];
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+
                         }
                     }
                     else if (z == Chunk.CHUNK_LENGTH - 1)
                     {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD]?.blockArray[x, y, 0] > 0)
+                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD]?.blockArray1D[chunk.CalculateBlockIndex(x, y, 0)] > 0)
+
                         {
-                            blocks[x, y] = 0;
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[x, y] = chunk.blockArray[x, y, z];
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+
                         }
                     }
                 }
@@ -577,11 +587,11 @@ public class VoxelManager
             {
                 for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
                 {
-                    byte blockID = blocks[x, y];
+                    byte blockID = blocks[x + (Chunk.CHUNK_WIDTH * y)];
                     if (blockID == 0) { continue; }
 
                     int height = 0;
-                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[x, y + height] == blockID)
+                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[x + (Chunk.CHUNK_WIDTH * (y + height))] == blockID)
                     {
                         height++;
                     }
@@ -592,7 +602,7 @@ public class VoxelManager
                     {
                         for (int h = 0; h < height; h++)
                         {
-                            if (blocks[x + width, y + h] != blockID)
+                            if (blocks[(x + width) + (Chunk.CHUNK_WIDTH * (y + h))] != blockID)
                             {
                                 canExtend = false;
                                 break;
@@ -609,7 +619,7 @@ public class VoxelManager
                     {
                         for (int j = 0; j < height; j++)
                         {
-                            blocks[x + i, y + j] = 0;
+                            blocks[(x + i) + (Chunk.CHUNK_WIDTH * (y + j))] = 0;
                         }
                     }
 

@@ -474,7 +474,6 @@ MonoBehaviour:
   seed: 0
   blockList: {fileID: 11400000, guid: e11aa234015dacb49ab4a67b64d1ccce, type: 2}
   contenentalnessToHeight: {fileID: 11400000, guid: e27670e7568ea9f4c91c9d63ed3db114, type: 2}
-  useGreedyMeshing: 1
   terrainMat: {fileID: -876546973899608171, guid: 6341746bb26e2e4459f74f5a6d7ee2de, type: 3}
   mainBlock: {fileID: 11400000, guid: a1932bff8ec04a14f8449ffec2a7268c, type: 2}
   underwaterBlock: {fileID: 11400000, guid: 13674a44c746c8942b07f97aa83082b2, type: 2}

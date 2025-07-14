@@ -18,7 +18,12 @@ public class Chunk : IComparable<Chunk>
     public GameObject chunkObj;
     public Vector3Int chunkPos;
 
-    public byte[,,] blockArray; // these bytes should reference different blocks. If they are 0 it is air. A byte goes to 0-255
+    //public byte[,,] blockArray; // these bytes should reference different blocks. If they are 0 it is air. A byte goes to 0-255
+    public byte[] blockArray1D;
+    // Setting x: just add x
+    // Setting y: add CHUNK_WIDTH + y 
+    // Setting z: add CHUNK_WIDTH + CHUNK_HEIGHT + z
+    // Adding it together: x + (CHUNK_WIDTH * z) + (CHUNK_WIDTH * CHUNK_LENGTH * y)
 
     public Chunk(Vector3 chunkPos)
     {
@@ -28,8 +33,9 @@ public class Chunk : IComparable<Chunk>
         // So we multiply: (16 / 0.25) * 0.25 = 16
 
         this.chunkPos = new Vector3Int((int)(chunkPos.x * CHUNK_WIDTH * blockSize), 0, (int)(chunkPos.z * CHUNK_LENGTH * blockSize));
-        blockArray = new byte[CHUNK_WIDTH, CHUNK_HEIGHT, CHUNK_LENGTH];
-        
+        blockArray1D = new byte[CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH];
+
+
         chunks.Add(this.chunkPos, this);
 
 
@@ -59,21 +65,24 @@ public class Chunk : IComparable<Chunk>
                     {
                         if (slope > 0.5f)
                         {
-                            blockArray[x, y, z] = (byte)(Generation.instance.stoneBlock.block_ID + 1);
+                            blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.stoneBlock.block_ID + 1);
                         }
                         else
                         {
                             if (y <= 20 / Generation.BLOCK_SIZE)
                             {
-                                blockArray[x, y, z] = (byte)(Generation.instance.underwaterBlock.block_ID + 1);
+                                blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.underwaterBlock.block_ID + 1);
+
                             }
                             else if (y == yVal)
                             {
-                                blockArray[x, y, z] = (byte)(Generation.instance.mainBlock.block_ID + 1);
+                                blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.mainBlock.block_ID + 1);
+
                             }
                             else
                             {
-                                blockArray[x, y, z] = (byte)(Generation.instance.dirtBlock.block_ID + 1);
+                                blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.mainBlock.block_ID + 1);
+
                             }
                         }
                     }
@@ -81,6 +90,12 @@ public class Chunk : IComparable<Chunk>
             }
         }
     }
+
+    public int CalculateBlockIndex(int x, int y, int z)
+    {
+        int index = x + (CHUNK_WIDTH * z) + (CHUNK_WIDTH * CHUNK_LENGTH * y);
+        return index;
+    } 
 
     public static Chunk GetChunkFromCoords(int x, int y, int z)
     {

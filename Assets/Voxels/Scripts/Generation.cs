@@ -29,7 +29,6 @@ public class Generation : MonoBehaviour
         contentalness_2 = new Noise(Chunk.CHUNK_WIDTH, Chunk.CHUNK_LENGTH, 0.1f, Noise.NoiseType.SIMPLEX);
         contentalness_3 = new Noise(Chunk.CHUNK_WIDTH, Chunk.CHUNK_LENGTH, 1f, Noise.NoiseType.SIMPLEX);
 
-        //Chunk.InititalizeChunks();
         StartCoroutine("InititalizeChunks");
     }
 
