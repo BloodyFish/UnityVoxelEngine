@@ -4,6 +4,10 @@ This is my first voxel implementation in Unity. It is still a work in progress.
 
 ### 👀 In progress...
 🏃 Making generation _faster!_ (This might take a bit)
+#### Task List:
+[] Convert to Unity's Job Sytem\
+[] Make world infinite\
+[] LOD Meshes
 
 ## Setting it up
 There a couple of things you need to set up before a voxel world is created:
