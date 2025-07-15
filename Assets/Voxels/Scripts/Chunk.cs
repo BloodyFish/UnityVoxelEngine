@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 
 
@@ -37,13 +41,12 @@ public class Chunk : IComparable<Chunk>
 
 
         chunks.Add(this.chunkPos, this);
+        Thread thread = new Thread(() => SetBlockArray(this));
+        thread.Start();
 
-
-        SetBlockArray();
 
     }
-
-    public void SetBlockArray()
+    public void SetBlockArray(Chunk chunk)
     {
         for (short x = 0; x < CHUNK_WIDTH; x++)
         {
@@ -51,17 +54,17 @@ public class Chunk : IComparable<Chunk>
             {
                 // Since we multiplied everything by blockSize before, we need to divide by blockSize to get the right noise position (since everything is still on the same size grid (CHUNK_WIDTH x CHUNK_LENGTH), its just the size of the blocks thats different)
                 // Therefore, we need to get rid of the multiplication we did, or else the noise will have weird spaces
-                float xCoord = x + chunkPos.x / Generation.BLOCK_SIZE;
-                float zCoord = z + chunkPos.z / Generation.BLOCK_SIZE;
+                float xCoord = x + chunk.chunkPos.x / Generation.BLOCK_SIZE;
+                float zCoord = z + chunk.chunkPos.z / Generation.BLOCK_SIZE;
 
                 float contentalness = Generation.GetContenentalness(xCoord, zCoord);
                 short yVal = (short)Mathf.Ceil(Generation.instance.contenentalnessToHeight.EvaluateAtPoint(contentalness, 100 / Generation.BLOCK_SIZE));
                 float slope = Generation.instance.contenentalnessToHeight.GetInstantaneousSlopeAtPoint(contentalness);
 
-                for (short y = 0; y < CHUNK_HEIGHT; y++)
+                for (short y = 0; y < yVal; y++)
                 {
-                    
-                    if(y <= yVal)
+
+                    if (y <= yVal)
                     {
                         if (slope > 0.5f)
                         {
@@ -74,14 +77,14 @@ public class Chunk : IComparable<Chunk>
                                 blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.underwaterBlock.block_ID + 1);
 
                             }
-                            else if (y == yVal)
+                            else if (y == yVal - 1)
                             {
                                 blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.mainBlock.block_ID + 1);
 
                             }
                             else
                             {
-                                blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.mainBlock.block_ID + 1);
+                                blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.dirtBlock.block_ID + 1);
 
                             }
                         }
@@ -91,7 +94,7 @@ public class Chunk : IComparable<Chunk>
         }
     }
 
-    public int CalculateBlockIndex(int x, int y, int z)
+    public static int CalculateBlockIndex(int x, int y, int z)
     {
         int index = x + (CHUNK_WIDTH * z) + (CHUNK_WIDTH * CHUNK_LENGTH * y);
         return index;

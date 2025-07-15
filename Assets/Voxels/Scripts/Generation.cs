@@ -9,7 +9,7 @@ public class Generation : MonoBehaviour
     [HideInInspector] public long seed;
     
 
-    public static float BLOCK_SIZE = 0.25f;
+    public static readonly float BLOCK_SIZE = 0.25f;
     public BlockList blockList;
     public Spline contenentalnessToHeight;
     public Material terrainMat;

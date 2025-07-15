@@ -64,18 +64,18 @@ public class VoxelManager
                 {
                     if (y < Chunk.CHUNK_HEIGHT - 1)
                     {
-                        if (chunk.blockArray1D[chunk.CalculateBlockIndex(x, y + 1, z)] > 0)
+                        if (chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y + 1, z)] > 0)
                         {
                             blocks[x + (Chunk.CHUNK_WIDTH * z)] = 0;
                         }
                         else
                         {
-                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
                         }
                     }
                     else if (y == Chunk.CHUNK_HEIGHT - 1)
                     {
-                        blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                        blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
                     }
                 }
             }
@@ -157,18 +157,18 @@ public class VoxelManager
                 {
                     if (y > 0)
                     {
-                        if(chunk.blockArray1D[chunk.CalculateBlockIndex(x, y - 1, z)] > 0)
+                        if(chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y - 1, z)] > 0)
                         {
                             blocks[x + (Chunk.CHUNK_WIDTH * z)] = 0;
                         }
                         else
                         {
-                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
                         }
                     }
                     else if (y == 0)
                     {
-                        blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                        blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
                     }
                 }
             }
@@ -251,24 +251,24 @@ public class VoxelManager
                 {
                     if (x < Chunk.CHUNK_WIDTH - 1)
                     {
-                        if(chunk.blockArray1D[chunk.CalculateBlockIndex(x + 1, y, z)] > 0)
+                        if(chunk.blockArray1D[Chunk.CalculateBlockIndex(x + 1, y, z)] > 0)
                         {
                             blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
                         }
                     }
                     else if (x == Chunk.CHUNK_WIDTH - 1)
                     {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT]?.blockArray1D[chunk.CalculateBlockIndex(0, y, z)] > 0)
+                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT]?.blockArray1D[Chunk.CalculateBlockIndex(0, y, z)] > 0)
                         {
                             blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
 
                         }
                     }
@@ -351,25 +351,25 @@ public class VoxelManager
                 {
                     if (x > 0)
                     {
-                        if (chunk.blockArray1D[chunk.CalculateBlockIndex(x - 1, y, z)] > 0)
+                        if (chunk.blockArray1D[Chunk.CalculateBlockIndex(x - 1, y, z)] > 0)
 
                         {
                             blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
                         }
                     }
                     else if (x == 0)
                     {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT]?.blockArray1D[chunk.CalculateBlockIndex(Chunk.CHUNK_WIDTH - 1, y, z)] > 0)
+                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT]?.blockArray1D[Chunk.CalculateBlockIndex(Chunk.CHUNK_WIDTH - 1, y, z)] > 0)
                         {
                             blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
 
                         }
                     }
@@ -452,26 +452,26 @@ public class VoxelManager
                 {
                     if (z > 0)
                     {
-                        if (chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z - 1)] > 0)
+                        if (chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z - 1)] > 0)
 
                         {
                             blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
 
                         }
                     }
                     else if (z == 0)
                     {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK]?.blockArray1D[chunk.CalculateBlockIndex(x, y, Chunk.CHUNK_LENGTH - 1)] > 0)
+                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK]?.blockArray1D[Chunk.CalculateBlockIndex(x, y, Chunk.CHUNK_LENGTH - 1)] > 0)
                         {
                             blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
 
                         }
                     }
@@ -556,27 +556,27 @@ public class VoxelManager
                 {
                     if (z < Chunk.CHUNK_LENGTH - 1)
                     {
-                        if (chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z + 1)] > 0)
+                        if (chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z + 1)] > 0)
 
                         {
                             blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
 
                         }
                     }
                     else if (z == Chunk.CHUNK_LENGTH - 1)
                     {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD]?.blockArray1D[chunk.CalculateBlockIndex(x, y, 0)] > 0)
+                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD]?.blockArray1D[Chunk.CalculateBlockIndex(x, y, 0)] > 0)
 
                         {
                             blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
                         }
                         else
                         {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[chunk.CalculateBlockIndex(x, y, z)];
+                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
 
                         }
                     }

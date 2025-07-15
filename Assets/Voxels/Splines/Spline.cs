@@ -1,9 +1,13 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(menuName = "VoxelStuff/Spline")]
 public class Spline : ScriptableObject
 {
     public AnimationCurve spline;
+
+    public List<Vector2> splinePositions;
+
 
     public float EvaluateAtPoint(float x, float scale)
     {
