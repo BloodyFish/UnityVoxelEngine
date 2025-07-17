@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.InputSystem.Controls;
 
 public class Generation : MonoBehaviour
 {
@@ -25,23 +24,24 @@ public class Generation : MonoBehaviour
     {
         GenerateSeed();
 
-        contentalness_1 = new Noise(Chunk.CHUNK_WIDTH, Chunk.CHUNK_LENGTH, 0.075f, Noise.NoiseType.PERLIN);
-        contentalness_2 = new Noise(Chunk.CHUNK_WIDTH, Chunk.CHUNK_LENGTH, 0.1f, Noise.NoiseType.SIMPLEX);
-        contentalness_3 = new Noise(Chunk.CHUNK_WIDTH, Chunk.CHUNK_LENGTH, 1f, Noise.NoiseType.SIMPLEX);
+        contentalness_1 = new Noise(16, 16, 0.075f, Noise.NoiseType.PERLIN);
+        contentalness_2 = new Noise(16, 16, 0.1f, Noise.NoiseType.SIMPLEX);
+        contentalness_3 = new Noise(16, 16, 1f, Noise.NoiseType.SIMPLEX);
 
         StartCoroutine("InititalizeChunks");
     }
 
     private IEnumerator InititalizeChunks()
     {
-        for (int x = 0; x < 16; x++)
+        for (int x = 0; x < 36; x++)
         {
-            for (int z = 0; z < 16; z++)
+            for (int z = 0; z < 36; z++)
             {
                 // Create our "main chunk"
                 Chunk chunk = new Chunk(new Vector3(x, 0, z));
 
-                chunk.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
+                //chunk.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
+                chunk.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer));
                 chunk.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
                 chunk.chunkObj.transform.position = chunk.chunkPos;
 
