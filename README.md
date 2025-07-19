@@ -1,6 +1,7 @@
 # UnityVoxelEngine
 This is my first voxel implementation in Unity. It is still a work in progress. 
 <img width="864" height="542" alt="Image" src="https://github.com/user-attachments/assets/8a1b4361-768d-4e04-86d1-e75ff227bcd2" />
+![Image](https://github.com/user-attachments/assets/6d257aa8-3023-4f62-aa34-326891d915c3)
 
 ### 👀 In progress...
 🏃 Making generation _faster!_ (This might take a bit)
