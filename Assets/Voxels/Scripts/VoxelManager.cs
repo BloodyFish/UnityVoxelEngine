@@ -1,8 +1,11 @@
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
+using static UnityEngine.Rendering.DebugUI;
 
 
 public class VoxelManager
@@ -25,7 +28,6 @@ public class VoxelManager
         public BackGreedyMesh backGreedyMesh;
     }
 
-    //private static List<Vector3> vertices = new List<Vector3>();
     private NativeList<GreedyVertex> verticies = new NativeList<GreedyVertex>(Allocator.Persistent);
     private NativeList<int> triangles = new NativeList<int>(Allocator.Persistent);
     
@@ -59,6 +61,7 @@ public class VoxelManager
         GreedyMeshReturnValues greedyMeshReturnValues = GreedyMeshJob(chunk, verticies, triangles, colorList, horizontal_crossSection, vertical_CrossSection_width, vertical_CrossSection_length);
         NativeArray<JobHandle> jobHandles = greedyMeshReturnValues.handles;
         JobHandle.CompleteAll(jobHandles);
+        jobHandles.Dispose();
 
         int vertexOffset = verticies.Length; // When we add triangles, the number we add is (index + 0), (index + 1).... but in our job, we start with a vertices list that is empty
                                              // So even though we add an offset inside the job as well, the offset is correct in terms with a starting vertex list of 0. It grows correcly inside the job
@@ -78,33 +81,73 @@ public class VoxelManager
 
         // That was a vert long explanation lol
 
+        NativeArray<byte> blockArray1D = greedyMeshReturnValues.topGreedyMesh.blockArray1D; // Since all jobs share the same blockArray1D, clearing one clears all!
+        blockArray1D.Dispose();
+        colorList.Dispose();
+        horizontal_crossSection.Dispose();
+        vertical_CrossSection_width.Dispose();
+        vertical_CrossSection_length.Dispose();
+
+
         CombineVerts(greedyMeshReturnValues.topGreedyMesh.verticies, verticies);
         CombineTris(greedyMeshReturnValues.topGreedyMesh.triangles, triangles, vertexOffset);
+        greedyMeshReturnValues.topGreedyMesh.verticies.Dispose();
+        greedyMeshReturnValues.topGreedyMesh.triangles.Dispose();
+        greedyMeshReturnValues.topGreedyMesh.blocks.Dispose();
 
         vertexOffset = verticies.Length;
         CombineVerts(greedyMeshReturnValues.bottomGreedyMesh.verticies, verticies);
         CombineTris(greedyMeshReturnValues.bottomGreedyMesh.triangles, triangles, vertexOffset);
+        greedyMeshReturnValues.bottomGreedyMesh.verticies.Dispose();
+        greedyMeshReturnValues.bottomGreedyMesh.triangles.Dispose();
+        greedyMeshReturnValues.bottomGreedyMesh.blocks.Dispose();
+
 
         vertexOffset = verticies.Length;
         CombineVerts(greedyMeshReturnValues.rightGreedyMesh.verticies, verticies);
         CombineTris(greedyMeshReturnValues.rightGreedyMesh.triangles, triangles, vertexOffset);
+        greedyMeshReturnValues.rightGreedyMesh.verticies.Dispose();
+        greedyMeshReturnValues.rightGreedyMesh.triangles.Dispose();
+        greedyMeshReturnValues.rightGreedyMesh.blocks.Dispose();
+        greedyMeshReturnValues.rightGreedyMesh.blockArray1D_right.Dispose();
+
+
 
         vertexOffset = verticies.Length;
         CombineVerts(greedyMeshReturnValues.leftGreedyMesh.verticies, verticies);
         CombineTris(greedyMeshReturnValues.leftGreedyMesh.triangles, triangles, vertexOffset);
+        greedyMeshReturnValues.leftGreedyMesh.verticies.Dispose();
+        greedyMeshReturnValues.leftGreedyMesh.triangles.Dispose();
+        greedyMeshReturnValues.leftGreedyMesh.blocks.Dispose();
+        greedyMeshReturnValues.leftGreedyMesh.blockArray1D_left.Dispose();
+
+
 
         vertexOffset = verticies.Length;
         CombineVerts(greedyMeshReturnValues.frontGreedyMesh.verticies, verticies);
         CombineTris(greedyMeshReturnValues.frontGreedyMesh.triangles, triangles, vertexOffset);
+        greedyMeshReturnValues.frontGreedyMesh.verticies.Dispose();
+        greedyMeshReturnValues.frontGreedyMesh.triangles.Dispose();
+        greedyMeshReturnValues.frontGreedyMesh.blocks.Dispose();
+        greedyMeshReturnValues.frontGreedyMesh.blockArray1D_front.Dispose();
+
+
 
         vertexOffset = verticies.Length;
         CombineVerts(greedyMeshReturnValues.backGreedyMesh.verticies, verticies);
         CombineTris(greedyMeshReturnValues.backGreedyMesh.triangles, triangles, vertexOffset);
+        greedyMeshReturnValues.backGreedyMesh.verticies.Dispose();
+        greedyMeshReturnValues.backGreedyMesh.triangles.Dispose();
+        greedyMeshReturnValues.backGreedyMesh.blocks.Dispose();
+        greedyMeshReturnValues.backGreedyMesh.blockArray1D_back.Dispose();
+
 
 
 
         GenerateMesh(chunk.chunkObj);
+
     }
+
 
 
     private void CombineVerts(NativeList<GreedyVertex> from, NativeList<GreedyVertex> to)
@@ -122,6 +165,7 @@ public class VoxelManager
             to.Add(index + t);
         }
     }
+
 
     private void GenerateMesh(GameObject obj)
     {
