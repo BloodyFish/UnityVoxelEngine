@@ -1,24 +1,37 @@
-using System.Collections.Generic;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 
 public class VoxelManager
 {
-    struct GreedyVertex
+    public struct GreedyVertex
     {
         public Vector3 position;
         public Color32 color;
     }
 
-    //private static List<Vector3> vertices = new List<Vector3>();
-    private static NativeList<GreedyVertex> vertices = new NativeList<GreedyVertex>(Allocator.Persistent);
-    private static NativeList<int> triangles = new NativeList<int>(Allocator.Persistent);
-    
-    public static void GreedyMesh(Chunk chunk)
+    public struct GreedyMeshReturnValues
     {
-        vertices.Clear();
+        public NativeArray<JobHandle> handles;
+
+        public TopGreedyMesh topGreedyMesh;
+        public BottomGreedyMesh bottomGreedyMesh;
+        public RightGreedyMesh rightGreedyMesh;
+        public LeftGreedyMesh leftGreedyMesh;
+        public FrontGreedyMesh frontGreedyMesh;
+        public BackGreedyMesh backGreedyMesh;
+    }
+
+    //private static List<Vector3> vertices = new List<Vector3>();
+    private NativeList<GreedyVertex> verticies = new NativeList<GreedyVertex>(Allocator.Persistent);
+    private NativeList<int> triangles = new NativeList<int>(Allocator.Persistent);
+    
+    public void GreedyMesh(Chunk chunk)
+    {
+        verticies.Clear();
         triangles.Clear();
         // We want to take a 2D cross-section of our voxels; a 2D representation of each "layer" on each axis
         // Then, we want to use our greedy meshing algorthim on that cross-section
@@ -29,645 +42,99 @@ public class VoxelManager
         // We keep doing this until we reach another block. When this happens, we look horizontally to see if we can extend our quad in the x direction
         // When we are all done, we have a quad! Then we either repeat this for the next block group in the z direction, or we move in the x direction and repeat.
 
-        /* 0 0 0 1 1 1 0 0
-         * 0 0 1 1 1 0 0 1
-         * 1 1 1 0 0 0 1 1
-         * 1 1 1 1 1 0 0 0
-         * 0 0 0 0 1 1 1 0
-         * 1 1 1 0 0 0 1 1 
-         * 0 0 1 1 1 0 0 0 */
-
 
         //Create an array of the visible blocks:
-        byte[] horizontal_crossSection = new byte[Chunk.CHUNK_WIDTH * Chunk.CHUNK_LENGTH];
-        byte[] vertical_CrossSection_width = new byte[Chunk.CHUNK_WIDTH * Chunk.CHUNK_HEIGHT];
-        byte[] vertical_CrossSection_length = new byte[Chunk.CHUNK_LENGTH * Chunk.CHUNK_HEIGHT];
+        NativeArray<byte> horizontal_crossSection = new NativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_LENGTH, Allocator.TempJob);
+        NativeArray<byte> vertical_CrossSection_width = new NativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_HEIGHT, Allocator.TempJob);
+        NativeArray<byte> vertical_CrossSection_length = new NativeArray<byte>(Chunk.CHUNK_LENGTH * Chunk.CHUNK_HEIGHT, Allocator.TempJob);
 
-        // TOP GREEDY MESH
-        TopGreedyMesh(chunk, horizontal_crossSection);
+        NativeArray<Color32> colorList = new NativeArray<Color32>(Generation.instance.blockList.blocks.Count, Allocator.TempJob);
+        int i = 0;
+        foreach (Block block in Generation.instance.blockList.blocks)
+        {
+            colorList[i] = block.vertexColor;
+            i++;
+        }
 
-        // BOTTOM GREEDY MESH
-        BottomGreedyMesh(chunk, horizontal_crossSection);
+        GreedyMeshReturnValues greedyMeshReturnValues = GreedyMeshJob(chunk, verticies, triangles, colorList, horizontal_crossSection, vertical_CrossSection_width, vertical_CrossSection_length);
+        NativeArray<JobHandle> jobHandles = greedyMeshReturnValues.handles;
+        JobHandle.CompleteAll(jobHandles);
 
-        // RIGHT GREEDY MESH
-        RightGreedyMesh(chunk, vertical_CrossSection_width);
+        int vertexOffset = verticies.Length; // When we add triangles, the number we add is (index + 0), (index + 1).... but in our job, we start with a vertices list that is empty
+                                             // So even though we add an offset inside the job as well, the offset is correct in terms with a starting vertex list of 0. It grows correcly inside the job
+                                                // BUT: inside the job our vertex list's length grows like: Length: 0, Length: 4, Length: 8... (for each quad), and we add that index to our tri index (hence the index + 0, index + 1, etc)
+                                                // SO: indide each job our triangles match up with the vertcies added starting at 0, starting at 4, starting at 8...
+                                                // HOWEVER: while this is correct, for each greedy meshing algrithim (top, bottom, left, right), our verticies start back at 0 since we pass an empty vertcies list whgen we call our job
+                                                // THIS MEANS: that each triangle has the exast same integer relating to vertext index
+                                             // When we combine our lists, we have to add ANOTHER offset to account for the fact that inside the jobs our list started at 0
 
-        //LEFT GREEDY MESH
-        LeftGreedyMesh(chunk, vertical_CrossSection_width);
+        // TRIANGLES WORK LIKE:
+            // 0, 1, 2, 2, 3, 0
+            // Then as we add more verts (4) we add 4 to the index: 4, 5, 6, 7, 7, 4
+            // And then when we add more... 8, 9, 10, 11, 11, 8
+            // So these numbers should keep increasing! However, as mentioned before, when we are inside a job, we pass a new list every greedy meshing algorthim, so we start at 0 each algorithm
+            // we go from 0 to a high number in one algrothmm (like top), but when the next algorithm starts (like right), the vertices list is passed as a new, empty list, and we start at 0 to a high number. 
+            // This is why we, when we combine, add another offset
 
-        // FRONT GREEDY MESH
-        FrontGreedyMesh(chunk, vertical_CrossSection_length);
+        // That was a vert long explanation lol
 
-        // BACK GREEDY MESH
-        BackGreedyMesh(chunk, vertical_CrossSection_length);
+        CombineVerts(greedyMeshReturnValues.topGreedyMesh.verticies, verticies);
+        CombineTris(greedyMeshReturnValues.topGreedyMesh.triangles, triangles, vertexOffset);
+
+        vertexOffset = verticies.Length;
+        CombineVerts(greedyMeshReturnValues.bottomGreedyMesh.verticies, verticies);
+        CombineTris(greedyMeshReturnValues.bottomGreedyMesh.triangles, triangles, vertexOffset);
+
+        vertexOffset = verticies.Length;
+        CombineVerts(greedyMeshReturnValues.rightGreedyMesh.verticies, verticies);
+        CombineTris(greedyMeshReturnValues.rightGreedyMesh.triangles, triangles, vertexOffset);
+
+        vertexOffset = verticies.Length;
+        CombineVerts(greedyMeshReturnValues.leftGreedyMesh.verticies, verticies);
+        CombineTris(greedyMeshReturnValues.leftGreedyMesh.triangles, triangles, vertexOffset);
+
+        vertexOffset = verticies.Length;
+        CombineVerts(greedyMeshReturnValues.frontGreedyMesh.verticies, verticies);
+        CombineTris(greedyMeshReturnValues.frontGreedyMesh.triangles, triangles, vertexOffset);
+
+        vertexOffset = verticies.Length;
+        CombineVerts(greedyMeshReturnValues.backGreedyMesh.verticies, verticies);
+        CombineTris(greedyMeshReturnValues.backGreedyMesh.triangles, triangles, vertexOffset);
+
+
 
         GenerateMesh(chunk.chunkObj);
     }
 
-    private static void TopGreedyMesh(Chunk chunk, byte[] blocks)
+
+    private void CombineVerts(NativeList<GreedyVertex> from, NativeList<GreedyVertex> to)
     {
-
-        for (int y = Chunk.CHUNK_HEIGHT; y >= 0; y--)
+        foreach (GreedyVertex v in from)
         {
-            for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
-            {
-                for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
-                {
-                    if (y < Chunk.CHUNK_HEIGHT - 1)
-                    {
-                        if (chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y + 1, z)] > 0)
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = 0;
-                        }
-                        else
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-                        }
-                    }
-                    else if (y == Chunk.CHUNK_HEIGHT - 1)
-                    {
-                        blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-                    }
-                }
-            }
-
-
-
-            for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
-            {
-                for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
-                {
-                    byte blockID = blocks[x + (Chunk.CHUNK_WIDTH * z)];
-                    if (blockID == 0) { continue; }
-
-                    int length = 0;
-                    while (z + length < Chunk.CHUNK_LENGTH && blocks[x + (Chunk.CHUNK_WIDTH * (z + length))] == blockID)
-                    {
-                        length++;
-                    }
-
-                    int width = 1; //We already checked the otherc column!
-                    bool canExtend = true;
-                    while (canExtend && x + width < Chunk.CHUNK_WIDTH)
-                    {
-                        for (int l = 0; l < length; l++)
-                        {
-                            if (blocks[(x + width) + (Chunk.CHUNK_WIDTH * (z + l))] != blockID)
-                            {
-                                canExtend = false;
-                                break;
-                            }
-                        }
-
-                        if (canExtend)
-                        {
-                            width++;
-                        }
-                    }
-
-                    for (int i = 0; i < width; i++)
-                    {
-                        for (int j = 0; j < length; j++)
-                        {
-                            blocks[(x + i) + (Chunk.CHUNK_WIDTH * (z + j))] = 0;
-                        }
-                    }
-
-                    // GENERATE QUAD
-                    int index = vertices.Length;
-
-                    float size = Generation.BLOCK_SIZE; // 0.25
-
-                    float xCenter = (x + width / 2f) * size;
-                    float zCenter = (z + length / 2f) * size;
-                    float yPos = (y * size); //This is the bottom corner y. So we'll have to move it up
-
-                    // half sizes for the quad
-                    float halfWidth = (width * size) / 2f;
-                    float halfLength = (length * size) / 2f;
-
-                    Color32 color = Generation.instance.blockList.blocks[blockID - 1].vertexColor;
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yPos + size, zCenter - halfLength), color = color});
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yPos + size, zCenter + halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yPos + size, zCenter + halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yPos + size, zCenter - halfLength), color = color });
-
-                    GenerateTris(index);
-                }
-            }
+           to.Add(v);
         }
     }
-    private static void BottomGreedyMesh(Chunk chunk, byte[] blocks)
-    {           
-        for (int y = 1; y < Chunk.CHUNK_HEIGHT - 1; y++) // We start at one becuase we don't actually need to render the bottom of the world. Who will see it?
-        {
-            for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
-            {
-                for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
-                {
-                    if (y > 0)
-                    {
-                        if(chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y - 1, z)] > 0)
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = 0;
-                        }
-                        else
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-                        }
-                    }
-                    else if (y == 0)
-                    {
-                        blocks[x + (Chunk.CHUNK_WIDTH * z)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-                    }
-                }
-            }
 
-            for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
-            {
-                for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
-                {
-                    byte blockID = blocks[x + (Chunk.CHUNK_WIDTH * z)];
-                    if (blockID == 0) { continue; }
-
-                    int length = 0;
-                    while (z + length < Chunk.CHUNK_LENGTH && blocks[x + (Chunk.CHUNK_WIDTH * (z + length))] == blockID)
-                    {
-                        length++;
-                    }
-
-                    int width = 1; //We already checked the otherc column!
-                    bool canExtend = true;
-                    while (canExtend && x + width < Chunk.CHUNK_WIDTH)
-                    {
-                        for (int l = 0; l < length; l++)
-                        {
-                            if (blocks[(x + width) + (Chunk.CHUNK_WIDTH * (z + l))] != blockID)
-                            {
-                                canExtend = false;
-                                break;
-                            }
-                        }
-
-                        if (canExtend)
-                        {
-                            width++;
-                        }
-                    }
-
-                    for (int i = 0; i < width; i++)
-                    {
-                        for (int j = 0; j < length; j++)
-                        {
-                            blocks[(x + i) + (Chunk.CHUNK_WIDTH * (z + j))] = 0;
-                        }
-                    }
-
-                    // GENERATE QUAD
-                    int index = vertices.Length;
-
-                    float size = Generation.BLOCK_SIZE; // 0.25
-
-                    float xCenter = (x + width / 2f) * size;
-                    float zCenter = (z + length / 2f) * size;
-                    float yPos = (y * size); //This is the bottom corner y. So we dont need to meove it
-
-                    // half sizes for the quad
-                    float halfWidth = (width * size) / 2f;
-                    float halfLength = (length * size) / 2f;
-
-                    Color32 color = Generation.instance.blockList.blocks[blockID - 1].vertexColor;
-
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yPos, zCenter + halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yPos, zCenter - halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yPos, zCenter - halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yPos, zCenter + halfLength), color = color });
-
-                    GenerateTris(index);
-                }
-            }
-        }
-    }
-    private static void RightGreedyMesh(Chunk chunk, byte[] blocks)
-    {            
-        for (int x = Chunk.CHUNK_WIDTH - 1; x >= 0; x--)
-        {
-            if (x == Chunk.CHUNK_WIDTH - 1 && chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT] == null) { continue; }
-
-            for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
-            {
-                for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
-                {
-                    if (x < Chunk.CHUNK_WIDTH - 1)
-                    {
-                        if(chunk.blockArray1D[Chunk.CalculateBlockIndex(x + 1, y, z)] > 0)
-                        {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
-                        }
-                        else
-                        {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-                        }
-                    }
-                    else if (x == Chunk.CHUNK_WIDTH - 1)
-                    {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT]?.blockArray1D[Chunk.CalculateBlockIndex(0, y, z)] > 0)
-                        {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
-                        }
-                        else
-                        {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-
-                        }
-                    }
-                }
-            }
-
-            for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
-            {
-                for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
-                {
-                    byte blockID = blocks[z + (Chunk.CHUNK_LENGTH * y)];
-                    if (blockID == 0) { continue; }
-
-                    int height = 0;
-                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[z + (Chunk.CHUNK_LENGTH * (y + height))] == blockID)
-                    {
-                        height++;
-                    }
-
-                    int length = 1; //We already checked the otherc column!
-                    bool canExtend = true;
-                    while (canExtend && z + length < Chunk.CHUNK_LENGTH)
-                    {
-                        for (int h = 0; h < height; h++)
-                        {
-                            if (blocks[(z + length) + (Chunk.CHUNK_LENGTH * (y + h))] != blockID)
-                            {
-                                canExtend = false;
-                                break;
-                            }
-                        }
-
-                        if (canExtend)
-                        {
-                            length++;
-                        }
-                    }
-
-                    for (int i = 0; i < length; i++)
-                    {
-                        for (int j = 0; j < height; j++)
-                        {
-                            blocks[(z + i) + (Chunk.CHUNK_LENGTH * (y + j))] = 0;
-                        }
-                    }
-                    // GENERATE QUAD
-                    int index = vertices.Length;
-
-                    float size = Generation.BLOCK_SIZE; // 0.25
-
-                    float xPos = (x * size);
-                    float yCenter = (y + height / 2f) * size;
-                    float zCenter = (z + length / 2f) * size;
-
-                    float halfHeight = (height * size) / 2f;
-                    float halfLength = (length * size) / 2f;
-
-                    Color32 color = Generation.instance.blockList.blocks[blockID - 1].vertexColor;
-
-                    vertices.Add(new GreedyVertex { position = new Vector3(xPos + size, yCenter - halfHeight, zCenter - halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xPos + size, yCenter + halfHeight, zCenter - halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xPos + size, yCenter + halfHeight, zCenter + halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xPos + size, yCenter - halfHeight, zCenter + halfLength), color = color });
-
-                    GenerateTris(index);
-                }
-            }
-        }
-    }
-    private static void LeftGreedyMesh(Chunk chunk, byte[] blocks)
+    private void CombineTris(NativeList<int> from, NativeList<int> to, int index)
     {
-        for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
+        foreach (int t in from)
         {
-            if (x == 0 && chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT] == null) { continue; }
-
-            for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
-            {
-                for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
-                {
-                    if (x > 0)
-                    {
-                        if (chunk.blockArray1D[Chunk.CalculateBlockIndex(x - 1, y, z)] > 0)
-
-                        {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
-                        }
-                        else
-                        {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-                        }
-                    }
-                    else if (x == 0)
-                    {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT]?.blockArray1D[Chunk.CalculateBlockIndex(Chunk.CHUNK_WIDTH - 1, y, z)] > 0)
-                        {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = 0;
-                        }
-                        else
-                        {
-                            blocks[z + (Chunk.CHUNK_LENGTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-
-                        }
-                    }
-                }
-            }
-
-            for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
-            {
-                for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
-                {
-                    byte blockID = blocks[z + (Chunk.CHUNK_LENGTH * y)];
-                    if (blockID == 0) { continue; }
-
-                    int height = 0;
-                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[z + (Chunk.CHUNK_LENGTH * (y + height))] == blockID)
-                    {
-                        height++;
-                    }
-
-                    int length = 1; //We already checked the otherc column!
-                    bool canExtend = true;
-                    while (canExtend && z + length < Chunk.CHUNK_LENGTH)
-                    {
-                        for (int h = 0; h < height; h++)
-                        {
-                            if (blocks[(z + length) + (Chunk.CHUNK_LENGTH * (y + h))] != blockID)
-                            {
-                                canExtend = false;
-                                break;
-                            }
-                        }
-
-                        if (canExtend)
-                        {
-                            length++;
-                        }
-                    }
-
-                    for (int i = 0; i < length; i++)
-                    {
-                        for (int j = 0; j < height; j++)
-                        {
-                            blocks[(z + i) + (Chunk.CHUNK_LENGTH * (y + j))] = 0;
-                        }
-                    }
-                    // GENERATE QUAD
-                    int index = vertices.Length;
-
-                    float size = Generation.BLOCK_SIZE; // 0.25
-
-                    float xPos = (x * size); 
-                    float yCenter = (y + height / 2f) * size;
-                    float zCenter = (z + length / 2f) * size;
-
-                    float halfHeight = (height * size) / 2f;
-                    float halfLength = (length * size) / 2f;
-
-                    Color32 color = Generation.instance.blockList.blocks[blockID - 1].vertexColor;
-
-                    vertices.Add(new GreedyVertex { position = new Vector3(xPos, yCenter - halfHeight, zCenter + halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xPos, yCenter + halfHeight, zCenter + halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xPos, yCenter + halfHeight, zCenter - halfLength), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xPos, yCenter - halfHeight, zCenter - halfLength), color = color });
-
-                    GenerateTris(index);
-                }
-            }
-        }
-    }
-    private static void FrontGreedyMesh(Chunk chunk, byte[] blocks)
-    {
-        for (int z = 0; z < Chunk.CHUNK_LENGTH; z++)
-        {
-            if (z == 0 && chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK] == null) { continue; }
-
-            for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
-            {
-                for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
-                {
-                    if (z > 0)
-                    {
-                        if (chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z - 1)] > 0)
-
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
-                        }
-                        else
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-
-                        }
-                    }
-                    else if (z == 0)
-                    {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK]?.blockArray1D[Chunk.CalculateBlockIndex(x, y, Chunk.CHUNK_LENGTH - 1)] > 0)
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
-                        }
-                        else
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-
-                        }
-                    }
-                }
-            }
-
-            for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
-            {
-                for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
-                {
-                    byte blockID = blocks[x + (Chunk.CHUNK_WIDTH * y)];
-                    if (blockID == 0) { continue; }
-
-                    int height = 0;
-                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[x + (Chunk.CHUNK_WIDTH * (y + height))] == blockID)
-                    {
-                        height++;
-                    }
-
-                    int width = 1; //We already checked the otherc column!
-                    bool canExtend = true;
-                    while (canExtend && x + width < Chunk.CHUNK_WIDTH)
-                    {
-                        for (int h = 0; h < height; h++)
-                        {
-                            if (blocks[(x + width) + (Chunk.CHUNK_WIDTH * (y + h))] != blockID)
-                            {
-                                canExtend = false;
-                                break;
-                            }
-                        }
-
-                        if (canExtend)
-                        {
-                            width++;
-                        }
-                    }
-
-                    for (int i = 0; i < width; i++)
-                    {
-                        for (int j = 0; j < height; j++)
-                        {
-                            blocks[(x + i) + (Chunk.CHUNK_WIDTH * (y + j))] = 0;
-                        }
-                    }
-
-                    // GENERATE QUAD
-                    int index = vertices.Length;
-
-                    float size = Generation.BLOCK_SIZE; // 0.25
-
-                    float xCenter = (x + width / 2f) * size;
-                    float zPos = (z * size); // This is the actual z corner of the front. We dont need to readjust!
-                    float yCenter = (y + height / 2f) * size;
-
-                    // half sizes for the quad
-                    float halfWidth = (width * size) / 2f;
-                    float halfHeight = (height * size) / 2f;
-
-                    Color32 color = Generation.instance.blockList.blocks[blockID - 1].vertexColor;
-
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yCenter - halfHeight, zPos), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yCenter + halfHeight, zPos), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yCenter + halfHeight, zPos), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yCenter - halfHeight, zPos), color = color });
-
-                    GenerateTris(index);
-                }
-            }
-        }
-    }
-    private static void BackGreedyMesh(Chunk chunk, byte[] blocks)
-    {
-        for (int z = Chunk.CHUNK_LENGTH - 1; z >= 0; z--)
-        {
-            if (z == Chunk.CHUNK_LENGTH - 1 && chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD] == null) { continue; }
-
-            for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
-            {
-                for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
-                {
-                    if (z < Chunk.CHUNK_LENGTH - 1)
-                    {
-                        if (chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z + 1)] > 0)
-
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
-                        }
-                        else
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-
-                        }
-                    }
-                    else if (z == Chunk.CHUNK_LENGTH - 1)
-                    {
-                        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD]?.blockArray1D[Chunk.CalculateBlockIndex(x, y, 0)] > 0)
-
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = 0;
-                        }
-                        else
-                        {
-                            blocks[x + (Chunk.CHUNK_WIDTH * y)] = chunk.blockArray1D[Chunk.CalculateBlockIndex(x, y, z)];
-
-                        }
-                    }
-                }
-            }
-
-            for (int x = 0; x < Chunk.CHUNK_WIDTH; x++)
-            {
-                for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++)
-                {
-                    byte blockID = blocks[x + (Chunk.CHUNK_WIDTH * y)];
-                    if (blockID == 0) { continue; }
-
-                    int height = 0;
-                    while (y + height < Chunk.CHUNK_HEIGHT && blocks[x + (Chunk.CHUNK_WIDTH * (y + height))] == blockID)
-                    {
-                        height++;
-                    }
-
-                    int width = 1; //We already checked the otherc column!
-                    bool canExtend = true;
-                    while (canExtend && x + width < Chunk.CHUNK_WIDTH)
-                    {
-                        for (int h = 0; h < height; h++)
-                        {
-                            if (blocks[(x + width) + (Chunk.CHUNK_WIDTH * (y + h))] != blockID)
-                            {
-                                canExtend = false;
-                                break;
-                            }
-                        }
-
-                        if (canExtend)
-                        {
-                            width++;
-                        }
-                    }
-
-                    for (int i = 0; i < width; i++)
-                    {
-                        for (int j = 0; j < height; j++)
-                        {
-                            blocks[(x + i) + (Chunk.CHUNK_WIDTH * (y + j))] = 0;
-                        }
-                    }
-
-                    // GENERATE QUAD
-                    int index = vertices.Length;
-
-                    float size = Generation.BLOCK_SIZE; // 0.25
-
-                    float xCenter = (x + width / 2f) * size;
-                    float zPos = (z * size);
-                    float yCenter = (y + height / 2f) * size;
-
-                    // half sizes for the quad
-                    float halfWidth = (width * size) / 2f;
-                    float halfHeight = (height * size) / 2f;
-
-                    Color32 color = Generation.instance.blockList.blocks[blockID - 1].vertexColor;
-
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yCenter - halfHeight, zPos + size), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yCenter + halfHeight, zPos + size), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yCenter + halfHeight, zPos + size), color = color });
-                    vertices.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yCenter - halfHeight, zPos + size), color = color });
-
-                    GenerateTris(index);
-                }
-            }
+            to.Add(index + t);
         }
     }
 
-
-    private static void GenerateMesh(GameObject obj)
+    private void GenerateMesh(GameObject obj)
     {
         Mesh mesh = new Mesh();
 
         // Setup vertex layout
-        mesh.SetVertexBufferParams(vertices.Length,
+        mesh.SetVertexBufferParams(verticies.Length,
             new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
             new VertexAttributeDescriptor(VertexAttribute.Color, VertexAttributeFormat.UNorm8, 4)
         );
 
         // Upload vertex data
-        mesh.SetVertexBufferData(vertices.AsArray(), 0, 0, vertices.Length);
+        mesh.SetVertexBufferData(verticies.AsArray(), 0, 0, verticies.Length);
 
         // Setup index buffer (assuming UInt32)
         mesh.SetIndexBufferParams(triangles.Length, IndexFormat.UInt32);
@@ -682,13 +149,939 @@ public class VoxelManager
         obj.GetComponent<MeshFilter>().mesh = mesh;
     }
 
-    private static void GenerateTris(int index)
+
+    public GreedyMeshReturnValues GreedyMeshJob(Chunk chunk, NativeList<GreedyVertex> verticies, NativeList<int> triangles, NativeArray<Color32> colorList, params NativeArray<byte>[] crossSections)
     {
-        triangles.Add(index + 0);
-        triangles.Add(index + 1);
-        triangles.Add(index + 2);
-        triangles.Add(index + 2);
-        triangles.Add(index + 3);
-        triangles.Add(index + 0);
+        NativeList<JobHandle> jobHandles = new NativeList<JobHandle>(Allocator.Persistent);
+        NativeArray<byte> blockArray1D = new NativeArray<byte>(chunk.blockArray1D, Allocator.TempJob);
+
+        NativeArray<byte> horizontal_crossSection = crossSections[0];
+        NativeArray<byte> vertical_crossSection_width = crossSections[1];
+        NativeArray<byte> vertical_crossSection_length = crossSections[2];
+
+
+        TopGreedyMesh job_Top = new TopGreedyMesh()
+        {
+            chunkWidth = Chunk.CHUNK_WIDTH,
+            chunkLength = Chunk.CHUNK_LENGTH,
+            chunkHeight = Chunk.CHUNK_HEIGHT,
+            blockSize = Generation.BLOCK_SIZE,
+
+            blockArray1D = blockArray1D,
+            blocks = new NativeArray<byte>(horizontal_crossSection, Allocator.TempJob),
+
+            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
+            triangles = new NativeList<int>(Allocator.TempJob),
+
+            colors = colorList
+
+        };
+
+        BottomGreedyMesh job_Bottom = new BottomGreedyMesh()
+        {
+            chunkWidth = Chunk.CHUNK_WIDTH,
+            chunkLength = Chunk.CHUNK_LENGTH,
+            chunkHeight = Chunk.CHUNK_HEIGHT,
+            blockSize = Generation.BLOCK_SIZE,
+
+            blockArray1D = blockArray1D,
+            blocks = new NativeArray<byte>(horizontal_crossSection, Allocator.TempJob),
+
+            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
+            triangles = new NativeList<int>(Allocator.TempJob),
+
+            colors = colorList
+        };
+
+        bool chunkToRight = true;
+        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT] == null)
+        {
+            chunkToRight = false;
+        }
+
+        NativeArray<byte> blockArray1D_right = new NativeArray<byte>(0, Allocator.TempJob);
+        if (chunkToRight)
+        {
+            blockArray1D_right = new NativeArray<byte>(chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT].blockArray1D, Allocator.TempJob);
+        }
+
+        RightGreedyMesh job_Right = new RightGreedyMesh()
+        {
+            chunkWidth = Chunk.CHUNK_WIDTH,
+            chunkLength = Chunk.CHUNK_LENGTH,
+            chunkHeight = Chunk.CHUNK_HEIGHT,
+            blockSize = Generation.BLOCK_SIZE,
+
+            blockArray1D = blockArray1D,
+            blocks = new NativeArray<byte>(vertical_crossSection_width, Allocator.TempJob),
+
+            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
+            triangles = new NativeList<int>(Allocator.TempJob),
+
+            colors = colorList,
+
+            chunkToRight = chunkToRight,
+            blockArray1D_right = blockArray1D_right
+        };
+
+        bool chunkToLeft = true;
+        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT] == null)
+        {
+            chunkToLeft = false;
+        }
+
+        NativeArray<byte> blockArray1D_left = new NativeArray<byte>(0, Allocator.TempJob);
+        if (chunkToLeft)
+        {
+            blockArray1D_left = new NativeArray<byte>(chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT].blockArray1D, Allocator.TempJob);
+        }
+
+        LeftGreedyMesh job_Left = new LeftGreedyMesh()
+        {
+            chunkWidth = Chunk.CHUNK_WIDTH,
+            chunkLength = Chunk.CHUNK_LENGTH,
+            chunkHeight = Chunk.CHUNK_HEIGHT,
+            blockSize = Generation.BLOCK_SIZE,
+
+            blockArray1D = blockArray1D,
+            blocks = new NativeArray<byte>(vertical_crossSection_width, Allocator.TempJob),
+
+            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
+            triangles = new NativeList<int>(Allocator.TempJob),
+
+            colors = colorList,
+
+            chunkToLeft = chunkToLeft,
+            blockArray1D_left = blockArray1D_left
+        };
+
+        bool chunkToFront = true;
+        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD] == null)
+        {
+            chunkToFront = false;
+        }
+
+        NativeArray<byte> blockArray1D_front = new NativeArray<byte>(0, Allocator.TempJob);
+        if (chunkToFront)
+        {
+            blockArray1D_front = new NativeArray<byte>(chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD].blockArray1D, Allocator.TempJob);
+        }
+
+        FrontGreedyMesh job_Front = new FrontGreedyMesh()
+        {
+            chunkWidth = Chunk.CHUNK_WIDTH,
+            chunkLength = Chunk.CHUNK_LENGTH,
+            chunkHeight = Chunk.CHUNK_HEIGHT,
+            blockSize = Generation.BLOCK_SIZE,
+
+            blockArray1D = blockArray1D,
+            blocks = new NativeArray<byte>(vertical_crossSection_length, Allocator.TempJob),
+
+            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
+            triangles = new NativeList<int>(Allocator.TempJob),
+
+            colors = colorList,
+
+            chunkToFront = chunkToFront,
+            blockArray1D_front = blockArray1D_front
+        };
+
+        bool chunkToBack = true;
+        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK] == null)
+        {
+            chunkToBack = false;
+        }
+
+        NativeArray<byte> blockArray1D_back = new NativeArray<byte>(0, Allocator.TempJob);
+        if (chunkToBack)
+        {
+            blockArray1D_back = new NativeArray<byte>(chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK].blockArray1D, Allocator.TempJob);
+        }
+
+        BackGreedyMesh job_Back = new BackGreedyMesh()
+        {
+            chunkWidth = Chunk.CHUNK_WIDTH,
+            chunkLength = Chunk.CHUNK_LENGTH,
+            chunkHeight = Chunk.CHUNK_HEIGHT,
+            blockSize = Generation.BLOCK_SIZE,
+
+            blockArray1D = blockArray1D,
+            blocks = new NativeArray<byte>(vertical_crossSection_length, Allocator.TempJob),
+
+            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
+            triangles = new NativeList<int>(Allocator.TempJob),
+
+            colors = colorList,
+
+            chunkToBack = chunkToBack,
+            blockArray1D_back = blockArray1D_back
+        };
+
+        JobHandle topHandle = job_Top.Schedule();
+        JobHandle bottomHandle = job_Bottom.Schedule();
+        JobHandle rightHandle = job_Right.Schedule(); 
+        JobHandle leftHandle = job_Left.Schedule();
+        JobHandle frontHandle = job_Front.Schedule();
+        JobHandle backHandle = job_Back.Schedule();
+
+        jobHandles.Add(topHandle);
+        jobHandles.Add(bottomHandle);
+        jobHandles.Add(rightHandle);
+        jobHandles.Add(leftHandle);
+        jobHandles.Add(frontHandle);
+        jobHandles.Add(backHandle);
+
+
+        GreedyMeshReturnValues greedyMeshReturnValues = new GreedyMeshReturnValues()
+        {
+            handles = jobHandles.AsArray(),
+            topGreedyMesh = job_Top,
+            bottomGreedyMesh = job_Bottom,
+            rightGreedyMesh = job_Right,
+            leftGreedyMesh = job_Left,
+            frontGreedyMesh = job_Front,
+            backGreedyMesh = job_Back
+        };
+
+        return greedyMeshReturnValues;
+    }
+
+    [BurstCompile]
+    public struct TopGreedyMesh : IJob
+    {
+        public int chunkWidth, chunkLength, chunkHeight;
+        public float blockSize;
+
+        [ReadOnly]
+        public NativeArray<byte> blockArray1D;
+        public NativeArray<byte> blocks;
+
+        public NativeList<GreedyVertex> verticies;
+        public NativeList<int> triangles;
+
+        [ReadOnly]
+        public NativeArray<Color32> colors;
+
+        public void Execute()
+        {
+            for (int y = chunkHeight - 1; y >= 0; y--)
+            {
+                for (int x = 0; x < chunkWidth; x++)
+                {
+                    for (int z = 0; z < chunkLength; z++)
+                    {
+                        if (y < chunkHeight - 1)
+                        {
+                            if (blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * (y + 1))] > 0)
+                            {
+                                blocks[x + (chunkWidth * z)] = 0;
+                            }
+                            else
+                            {
+                                blocks[x + (chunkWidth * z)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                            }
+                        }
+                        else if (y == chunkHeight - 1)
+                        {
+                            blocks[x + (chunkWidth * z)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                        }
+                    }
+                }
+
+                for (int x = 0; x < chunkWidth; x++)
+                {
+                    for (int z = 0; z < chunkLength; z++)
+                    {
+                        byte blockID = blocks[x + (chunkWidth * z)];
+                        if (blockID == 0) { continue; }
+
+                        int length = 0;
+                        while (z + length < chunkLength && blocks[x + (chunkWidth * (z + length))] == blockID)
+                        {
+                            length++;
+                        }
+
+                        int width = 1; //We already checked the otherc column!
+                        bool canExtend = true;
+                        while (canExtend && x + width < chunkWidth)
+                        {
+                            for (int l = 0; l < length; l++)
+                            {
+                                if (blocks[(x + width) + (chunkWidth * (z + l))] != blockID)
+                                {
+                                    canExtend = false;
+                                    break;
+                                }
+                            }
+
+                            if (canExtend)
+                            {
+                                width++;
+                            }
+                        }
+
+                        for (int i = 0; i < width; i++)
+                        {
+                            for (int j = 0; j < length; j++)
+                            {
+                                blocks[(x + i) + (chunkWidth * (z + j))] = 0;
+                            }
+                        }
+
+                        // GENERATE QUAD
+                        int index = verticies.Length;
+
+                        float size = blockSize; // 0.25
+
+                        float xCenter = (x + width / 2f) * size;
+                        float zCenter = (z + length / 2f) * size;
+                        float yPos = (y * size); //This is the bottom corner y. So we'll have to move it up
+
+                        // half sizes for the quad
+                        float halfWidth = (width * size) / 2f;
+                        float halfLength = (length * size) / 2f;
+
+                        Color32 color = colors[blockID - 1];
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yPos + size, zCenter - halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yPos + size, zCenter + halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yPos + size, zCenter + halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yPos + size, zCenter - halfLength), color = color });
+
+                        triangles.Add(index + 0);
+                        triangles.Add(index + 1);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 3);
+                        triangles.Add(index + 0);
+                    }
+                }
+            }
+        }
+    }
+
+    [BurstCompile]
+    public struct BottomGreedyMesh : IJob
+    {
+        public int chunkWidth, chunkLength, chunkHeight;
+        public float blockSize;
+
+        [ReadOnly]
+        public NativeArray<byte> blockArray1D;
+        public NativeArray<byte> blocks;
+
+        public NativeList<GreedyVertex> verticies;
+        public NativeList<int> triangles;
+
+        [ReadOnly]
+        public NativeArray<Color32> colors;
+
+        public void Execute()
+        {
+            for (int y = 1; y < chunkHeight - 1; y++) // We start at one becuase we don't actually need to render the bottom of the world. Who will see it?
+            {
+                for (int x = 0; x < chunkWidth; x++)
+                {
+                    for (int z = 0; z < chunkLength; z++)
+                    {
+                        if (y > 0)
+                        {
+                            if (blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * (y - 1))] > 0)
+                            {
+                                blocks[x + (chunkWidth * z)] = 0;
+                            }
+                            else
+                            {
+                                blocks[x + (chunkWidth * z)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                            }
+                        }
+                        else if (y == 0)
+                        {
+                            blocks[x + (chunkWidth * z)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                        }
+                    }
+                }
+
+                for (int x = 0; x < chunkWidth; x++)
+                {
+                    for (int z = 0; z < chunkLength; z++)
+                    {
+                        byte blockID = blocks[x + (chunkWidth * z)];
+                        if (blockID == 0) { continue; }
+
+                        int length = 0;
+                        while (z + length < chunkLength && blocks[x + (chunkWidth * (z + length))] == blockID)
+                        {
+                            length++;
+                        }
+
+                        int width = 1; //We already checked the otherc column!
+                        bool canExtend = true;
+                        while (canExtend && x + width < chunkWidth)
+                        {
+                            for (int l = 0; l < length; l++)
+                            {
+                                if (blocks[(x + width) + (chunkWidth * (z + l))] != blockID)
+                                {
+                                    canExtend = false;
+                                    break;
+                                }
+                            }
+
+                            if (canExtend)
+                            {
+                                width++;
+                            }
+                        }
+
+                        for (int i = 0; i < width; i++)
+                        {
+                            for (int j = 0; j < length; j++)
+                            {
+                                blocks[(x + i) + (chunkWidth* (z + j))] = 0;
+                            }
+                        }
+
+                        // GENERATE QUAD
+                        int index = verticies.Length;
+
+                        float size = blockSize; // 0.25
+
+                        float xCenter = (x + width / 2f) * size;
+                        float zCenter = (z + length / 2f) * size;
+                        float yPos = (y * size); //This is the bottom corner y. So we dont need to meove it
+
+                        // half sizes for the quad
+                        float halfWidth = (width * size) / 2f;
+                        float halfLength = (length * size) / 2f;
+
+                        Color32 color = colors[blockID - 1];
+
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yPos, zCenter + halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yPos, zCenter - halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yPos, zCenter - halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yPos, zCenter + halfLength), color = color });
+
+                        triangles.Add(index + 0);
+                        triangles.Add(index + 1);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 3);
+                        triangles.Add(index + 0);
+
+                    }
+                }
+            }
+        }
+    }
+
+    [BurstCompile]
+    public struct RightGreedyMesh : IJob
+    {
+        public int chunkWidth, chunkLength, chunkHeight;
+        public float blockSize;
+
+        [ReadOnly]
+        public NativeArray<byte> blockArray1D;
+        public NativeArray<byte> blocks;
+
+        public NativeList<GreedyVertex> verticies;
+        public NativeList<int> triangles;
+
+        [ReadOnly]
+        public NativeArray<Color32> colors;
+
+        public bool chunkToRight;
+        public NativeArray<byte> blockArray1D_right;
+
+        public void Execute()
+        {
+            for (int x = chunkWidth - 1; x >= 0; x--)
+            {
+                if (x == chunkWidth - 1 && !chunkToRight) { continue; }
+
+                for (int z = 0; z < chunkLength; z++)
+                {
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        if (x < chunkWidth - 1)
+                        {
+                            if (blockArray1D[(x + 1) + (chunkWidth * z) + (chunkWidth * chunkLength * y)] > 0)
+                            {
+                                blocks[z + (chunkLength * y)] = 0;
+                            }
+                            else
+                            {
+                                blocks[z + (chunkLength * y)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                            }
+                        }
+                        else if (x == chunkWidth - 1)
+                        {
+                            if (blockArray1D_right[0 + (chunkWidth * z) + (chunkWidth * chunkLength * y)] > 0)
+                            {
+                                blocks[z + (chunkLength * y)] = 0;
+                            }
+                            else
+                            {
+                                blocks[z + (chunkLength * y)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                            }
+                        }
+                    }
+                }
+
+                for (int z = 0; z < chunkLength; z++)
+                {
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        byte blockID = blocks[z + (chunkLength * y)];
+                        if (blockID == 0) { continue; }
+
+                        int height = 0;
+                        while (y + height < chunkHeight && blocks[z + (chunkLength* (y + height))] == blockID)
+                        {
+                            height++;
+                        }
+
+                        int length = 1; //We already checked the other column!
+                        bool canExtend = true;
+                        while (canExtend && z + length < chunkLength)
+                        {
+                            for (int h = 0; h < height; h++)
+                            {
+                                if (blocks[(z + length) + (chunkLength * (y + h))] != blockID)
+                                {
+                                    canExtend = false;
+                                    break;
+                                }
+                            }
+
+                            if (canExtend)
+                            {
+                                length++;
+                            }
+                        }
+
+                        for (int i = 0; i < length; i++)
+                        {
+                            for (int j = 0; j < height; j++)
+                            {
+                                blocks[(z + i) + (chunkLength * (y + j))] = 0;
+                            }
+                        }
+                        // GENERATE QUAD
+                        int index = verticies.Length;
+
+                        float size = blockSize; // 0.25
+
+                        float xPos = (x * size);
+                        float yCenter = (y + height / 2f) * size;
+                        float zCenter = (z + length / 2f) * size;
+
+                        float halfHeight = (height * size) / 2f;
+                        float halfLength = (length * size) / 2f;
+
+                        Color32 color = colors[blockID - 1];
+
+                        verticies.Add(new GreedyVertex { position = new Vector3(xPos + size, yCenter - halfHeight, zCenter - halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xPos + size, yCenter + halfHeight, zCenter - halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xPos + size, yCenter + halfHeight, zCenter + halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xPos + size, yCenter - halfHeight, zCenter + halfLength), color = color });
+
+                        triangles.Add(index + 0);
+                        triangles.Add(index + 1);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 3);
+                        triangles.Add(index + 0);
+
+                    }
+                }
+            }
+
+        }
+    }
+
+    [BurstCompile]
+    public struct LeftGreedyMesh : IJob
+    {
+        public int chunkWidth, chunkLength, chunkHeight;
+        public float blockSize;
+
+        [ReadOnly]
+        public NativeArray<byte> blockArray1D;
+        public NativeArray<byte> blocks;
+
+        public NativeList<GreedyVertex> verticies;
+        public NativeList<int> triangles;
+
+        [ReadOnly]
+        public NativeArray<Color32> colors;
+
+        public bool chunkToLeft;
+        public NativeArray<byte> blockArray1D_left;
+
+        public void Execute()
+        {
+            for (int x = 0; x < chunkWidth; x++)
+            {
+                if (x == 0 && !chunkToLeft) { continue; }
+
+                for (int z = 0; z < chunkLength; z++)
+                {
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        if (x > 0)
+                        {
+                            if (blockArray1D[(x - 1) + (chunkWidth * z) + (chunkWidth * chunkLength * y)] > 0)
+
+                            {
+                                blocks[z + (chunkLength * y)] = 0;
+                            }
+                            else
+                            {
+                                blocks[z + (chunkLength * y)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                            }
+                        }
+                        else if (x == 0)
+                        {
+                            if (blockArray1D_left[(chunkWidth - 1) + (chunkWidth * z) + (chunkWidth * chunkLength * y)] > 0)
+                            {
+                                blocks[z + (chunkLength * y)] = 0;
+                            }
+                            else
+                            {
+                                blocks[z + (chunkLength * y)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+
+                            }
+                        }
+                    }
+                }
+
+                for (int z = 0; z < chunkLength; z++)
+                {
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        byte blockID = blocks[z + (chunkLength * y)];
+                        if (blockID == 0) { continue; }
+
+                        int height = 0;
+                        while (y + height < chunkHeight && blocks[z + (chunkLength * (y + height))] == blockID)
+                        {
+                            height++;
+                        }
+
+                        int length = 1; //We already checked the otherc column!
+                        bool canExtend = true;
+                        while (canExtend && z + length < chunkLength)
+                        {
+                            for (int h = 0; h < height; h++)
+                            {
+                                if (blocks[(z + length) + (chunkLength * (y + h))] != blockID)
+                                {
+                                    canExtend = false;
+                                    break;
+                                }
+                            }
+
+                            if (canExtend)
+                            {
+                                length++;
+                            }
+                        }
+
+                        for (int i = 0; i < length; i++)
+                        {
+                            for (int j = 0; j < height; j++)
+                            {
+                                blocks[(z + i) + (chunkLength * (y + j))] = 0;
+                            }
+                        }
+                        // GENERATE QUAD
+                        int index = verticies.Length;
+
+                        float size = blockSize; // 0.25
+
+                        float xPos = (x * size);
+                        float yCenter = (y + height / 2f) * size;
+                        float zCenter = (z + length / 2f) * size;
+
+                        float halfHeight = (height * size) / 2f;
+                        float halfLength = (length * size) / 2f;
+
+                        Color32 color = colors[blockID - 1];
+
+                        verticies.Add(new GreedyVertex { position = new Vector3(xPos, yCenter - halfHeight, zCenter + halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xPos, yCenter + halfHeight, zCenter + halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xPos, yCenter + halfHeight, zCenter - halfLength), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xPos, yCenter - halfHeight, zCenter - halfLength), color = color });
+
+                        triangles.Add(index + 0);
+                        triangles.Add(index + 1);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 3);
+                        triangles.Add(index + 0);
+                    }
+                }
+            }
+        }
+    }
+
+    [BurstCompile]
+    public struct FrontGreedyMesh : IJob
+    {
+        public int chunkWidth, chunkLength, chunkHeight;
+        public float blockSize;
+
+        [ReadOnly]
+        public NativeArray<byte> blockArray1D;
+        public NativeArray<byte> blocks;
+
+        public NativeList<GreedyVertex> verticies;
+        public NativeList<int> triangles;
+
+        [ReadOnly]
+        public NativeArray<Color32> colors;
+
+        public bool chunkToFront;
+        public NativeArray<byte> blockArray1D_front;
+
+        public void Execute()
+        {
+            for (int z = chunkLength - 1; z >= 0; z--)
+            {
+                if (z == chunkLength - 1 && !chunkToFront) { continue; }
+
+                for (int x = 0; x < chunkWidth; x++)
+                {
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        if (z < chunkLength - 1)
+                        {
+                            if (blockArray1D[x + (chunkWidth * (z + 1)) + (chunkWidth * chunkLength * y)] > 0)
+
+                            {
+                                blocks[x + (chunkWidth * y)] = 0;
+                            }
+                            else
+                            {
+                                blocks[x + (chunkWidth * y)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+
+                            }
+                        }
+                        else if (z == chunkLength - 1)
+                        {
+                            if (blockArray1D_front[x + (chunkWidth * 0) + (chunkWidth * chunkLength * y)] > 0)
+
+                            {
+                                blocks[x + (chunkWidth * y)] = 0;
+                            }
+                            else
+                            {
+                                blocks[x + (chunkWidth * y)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+
+                            }
+                        }
+                    }
+                }
+
+                for (int x = 0; x < chunkWidth; x++)
+                {
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        byte blockID = blocks[x + (chunkWidth * y)];
+                        if (blockID == 0) { continue; }
+
+                        int height = 0;
+                        while (y + height < chunkHeight && blocks[x + (chunkWidth * (y + height))] == blockID)
+                        {
+                            height++;
+                        }
+
+                        int width = 1; //We already checked the otherc column!
+                        bool canExtend = true;
+                        while (canExtend && x + width < chunkWidth)
+                        {
+                            for (int h = 0; h < height; h++)
+                            {
+                                if (blocks[(x + width) + (chunkWidth * (y + h))] != blockID)
+                                {
+                                    canExtend = false;
+                                    break;
+                                }
+                            }
+
+                            if (canExtend)
+                            {
+                                width++;
+                            }
+                        }
+
+                        for (int i = 0; i < width; i++)
+                        {
+                            for (int j = 0; j < height; j++)
+                            {
+                                blocks[(x + i) + (chunkWidth * (y + j))] = 0;
+                            }
+                        }
+
+                        // GENERATE QUAD
+                        int index = verticies.Length;
+
+                        float size = blockSize; // 0.25
+
+                        float xCenter = (x + width / 2f) * size;
+                        float zPos = (z * size);
+                        float yCenter = (y + height / 2f) * size;
+
+                        // half sizes for the quad
+                        float halfWidth = (width * size) / 2f;
+                        float halfHeight = (height * size) / 2f;
+
+                        Color32 color = colors[blockID - 1];
+
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yCenter - halfHeight, zPos + size), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yCenter + halfHeight, zPos + size), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yCenter + halfHeight, zPos + size), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yCenter - halfHeight, zPos + size), color = color });
+
+                        triangles.Add(index + 0);
+                        triangles.Add(index + 1);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 3);
+                        triangles.Add(index + 0);
+                    }
+                }
+            }
+        }
+    }
+
+    [BurstCompile]
+    public struct BackGreedyMesh : IJob
+    {
+        public int chunkWidth, chunkLength, chunkHeight;
+        public float blockSize;
+
+        [ReadOnly]
+        public NativeArray<byte> blockArray1D;
+        public NativeArray<byte> blocks;
+
+        public NativeList<GreedyVertex> verticies;
+        public NativeList<int> triangles;
+
+        [ReadOnly]
+        public NativeArray<Color32> colors;
+
+        public bool chunkToBack;
+        public NativeArray<byte> blockArray1D_back;
+
+        public void Execute()
+        {
+            for (int z = 0; z < chunkLength; z++)
+            {
+                if (z == 0 && !chunkToBack) { continue; }
+
+                for (int x = 0; x < chunkWidth; x++)
+                {
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        if (z > 0)
+                        {
+                            if (blockArray1D[x + (chunkWidth * (z - 1)) + (chunkWidth * chunkLength * y)] > 0)
+
+                            {
+                                blocks[x + (chunkWidth * y)] = 0;
+                            }
+                            else
+                            {
+                                blocks[x + (chunkWidth * y)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+
+                            }
+                        }
+                        else if (z == 0)
+                        {
+                            if (blockArray1D_back[x + (chunkWidth * (chunkLength - 1)) + (chunkWidth * chunkLength * y)] > 0)
+                            {
+                                blocks[x + (chunkWidth * y)] = 0;
+                            }
+                            else
+                            {
+                                blocks[x + (chunkWidth * y)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+
+                            }
+                        }
+                    }
+                }
+
+                for (int x = 0; x < chunkWidth; x++)
+                {
+                    for (int y = 0; y < chunkHeight; y++)
+                    {
+                        byte blockID = blocks[x + (chunkWidth * y)];
+                        if (blockID == 0) { continue; }
+
+                        int height = 0;
+                        while (y + height < chunkHeight && blocks[x + (chunkWidth * (y + height))] == blockID)
+                        {
+                            height++;
+                        }
+
+                        int width = 1; //We already checked the otherc column!
+                        bool canExtend = true;
+                        while (canExtend && x + width < chunkWidth)
+                        {
+                            for (int h = 0; h < height; h++)
+                            {
+                                if (blocks[(x + width) + (chunkWidth * (y + h))] != blockID)
+                                {
+                                    canExtend = false;
+                                    break;
+                                }
+                            }
+
+                            if (canExtend)
+                            {
+                                width++;
+                            }
+                        }
+
+                        for (int i = 0; i < width; i++)
+                        {
+                            for (int j = 0; j < height; j++)
+                            {
+                                blocks[(x + i) + (chunkWidth * (y + j))] = 0;
+                            }
+                        }
+
+                        // GENERATE QUAD
+                        int index = verticies.Length;
+
+                        float size = blockSize; // 0.25
+
+                        float xCenter = (x + width / 2f) * size;
+                        float zPos = (z * size); // This is the actual z corner of the front. We dont need to readjust!
+                        float yCenter = (y + height / 2f) * size;
+
+                        // half sizes for the quad
+                        float halfWidth = (width * size) / 2f;
+                        float halfHeight = (height * size) / 2f;
+
+                        Color32 color = colors[blockID - 1];
+
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yCenter - halfHeight, zPos), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter - halfWidth, yCenter + halfHeight, zPos), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yCenter + halfHeight, zPos), color = color });
+                        verticies.Add(new GreedyVertex { position = new Vector3(xCenter + halfWidth, yCenter - halfHeight, zPos), color = color });
+
+                        triangles.Add(index + 0);
+                        triangles.Add(index + 1);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 2);
+                        triangles.Add(index + 3);
+                        triangles.Add(index + 0);
+                    }
+                }
+            }
+        }
     }
 }

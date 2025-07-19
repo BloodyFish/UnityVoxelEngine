@@ -33,9 +33,9 @@ public class Generation : MonoBehaviour
 
     private IEnumerator InititalizeChunks()
     {
-        for (int x = 0; x < 36; x++)
+        for (int x = 0; x < 16; x++)
         {
-            for (int z = 0; z < 36; z++)
+            for (int z = 0; z < 16; z++)
             {
                 // Create our "main chunk"
                 Chunk chunk = new Chunk(new Vector3(x, 0, z));
@@ -45,12 +45,13 @@ public class Generation : MonoBehaviour
                 chunk.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
                 chunk.chunkObj.transform.position = chunk.chunkPos;
 
-                VoxelManager.GreedyMesh(chunk);
+                VoxelManager chunkVoxelManager = new VoxelManager();
+                chunkVoxelManager.GreedyMesh(chunk);
                 foreach (Chunk adj_chunk in chunk.GetAdjacentChunks())
                 {
                     if (adj_chunk != null)
                     {
-                        VoxelManager.GreedyMesh(adj_chunk);
+                        chunkVoxelManager.GreedyMesh(adj_chunk);
                     }
                 }
 
