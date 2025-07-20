@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Threading;
 using UnityEngine;
 
 public class Generation : MonoBehaviour
@@ -37,24 +38,7 @@ public class Generation : MonoBehaviour
         {
             for (int z = 0; z < 16; z++)
             {
-                // Create our "main chunk"
                 Chunk chunk = new Chunk(new Vector3(x, 0, z));
-
-                //chunk.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
-                chunk.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer));
-                chunk.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
-                chunk.chunkObj.transform.position = chunk.chunkPos;
-
-                VoxelManager chunkVoxelManager = new VoxelManager();
-                chunkVoxelManager.GreedyMesh(chunk);
-                foreach (Chunk adj_chunk in chunk.GetAdjacentChunks())
-                {
-                    if (adj_chunk != null)
-                    {
-                        chunkVoxelManager.GreedyMesh(adj_chunk);
-                    }
-                }
-
                 yield return null;
             }
         }

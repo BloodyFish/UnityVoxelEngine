@@ -7,7 +7,7 @@ using Unity.Jobs;
 using UnityEngine;
 
 
-public class Chunk : IComparable<Chunk> 
+public class Chunk
 {
     //public static List<Chunk> chunks = new List<Chunk>();
     public static Dictionary<Vector3Int, Chunk> chunks = new Dictionary<Vector3Int, Chunk>();
@@ -36,10 +36,22 @@ public class Chunk : IComparable<Chunk>
         this.chunkPos = new Vector3Int((int)(chunkPos.x * (CHUNK_WIDTH * blockSize)), 0, (int)(chunkPos.z * (CHUNK_LENGTH * blockSize)));
         blockArray1D = new byte[CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH];
 
-
         chunks.Add(this.chunkPos, this);
-        Thread thread = new Thread(() => SetBlockArray(this));
-        thread.Start();
+        SetBlockArray(this);
+
+        this.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer));
+        this.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
+        this.chunkObj.transform.position = this.chunkPos;
+
+        VoxelManager chunkVoxelManager = new VoxelManager();
+        chunkVoxelManager.GreedyMesh(this);
+        foreach (Chunk adj_chunk in GetAdjacentChunks())
+        {
+            if (adj_chunk != null)
+            {
+                chunkVoxelManager.GreedyMesh(adj_chunk);
+            }
+        }
 
     }
     public void SetBlockArray(Chunk chunk)
@@ -68,7 +80,7 @@ public class Chunk : IComparable<Chunk>
                         }
                         else
                         {
-                            if (y <= 20 / Generation.BLOCK_SIZE)
+                            if (y <= 20 / blockSize)
                             {
                                 blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.underwaterBlock.block_ID + 1);
 
@@ -115,23 +127,5 @@ public class Chunk : IComparable<Chunk>
         adjacentChunks[(int)Direction.BACK] = GetChunkFromCoords(chunkPos.x, chunkPos.y, (int)(chunkPos.z - CHUNK_LENGTH * blockSize));
 
         return adjacentChunks;
-    }
-
-    public int CompareTo(Chunk other)
-    {
-
-        // x values hold more prevalence
-        int xComparison = this.chunkPos.x.CompareTo(other.chunkPos.x);
-        int zComparison = this.chunkPos.z.CompareTo(other.chunkPos.z);
-
-        if (xComparison != 0)
-        {
-            return xComparison;
-        }
-        else // if the x values are the same we compare the z values
-        {
-            return zComparison;
-        }
-
     }
 }
