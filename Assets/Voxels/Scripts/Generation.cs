@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 public class Generation : MonoBehaviour
@@ -11,7 +13,11 @@ public class Generation : MonoBehaviour
 
     public static readonly float BLOCK_SIZE = 0.25f;
     public BlockList blockList;
-    public Spline contenentalnessToHeight;
+    public static Color32[] colorList;
+
+    [SerializeField] AnimationCurve contenentalnessToHeight;
+    [HideInInspector] public Spline contenentalnessToHeight_spline;
+
     public Material terrainMat;
     public Block mainBlock, underwaterBlock, stoneBlock, dirtBlock;
 
@@ -20,6 +26,16 @@ public class Generation : MonoBehaviour
     private void Awake()
     {
         instance = this;
+        contenentalnessToHeight_spline = new Spline(contenentalnessToHeight);
+
+        colorList = new Color32[blockList.blocks.Count];
+        int i = 0;  
+        foreach(Block block in blockList.blocks)
+        {
+            colorList[i] = block.vertexColor;
+            i++;
+        }
+
     }
     private void Start()
     {
@@ -43,6 +59,7 @@ public class Generation : MonoBehaviour
             }
         }
     }
+
 
     public void GenerateSeed()
     {

@@ -7,7 +7,7 @@ public class Noise
     public float width, length;
     public float scale;
 
-    public enum NoiseType { PERLIN, SIMPLEX};
+    public enum NoiseType { PERLIN, SIMPLEX };
     public static NoiseType noiseType;
     public NoiseType chosenNoiseType;
 

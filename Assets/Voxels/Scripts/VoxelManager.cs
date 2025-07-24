@@ -1,11 +1,8 @@
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Rendering;
-using static UnityEngine.Rendering.DebugUI;
 
 
 public class VoxelManager
@@ -30,7 +27,7 @@ public class VoxelManager
 
     private NativeList<GreedyVertex> verticies = new NativeList<GreedyVertex>(Allocator.Persistent);
     private NativeList<int> triangles = new NativeList<int>(Allocator.Persistent);
-    
+
     public void GreedyMesh(Chunk chunk)
     {
         verticies.Clear();
@@ -65,19 +62,19 @@ public class VoxelManager
 
         int vertexOffset = verticies.Length; // When we add triangles, the number we add is (index + 0), (index + 1).... but in our job, we start with a vertices list that is empty
                                              // So even though we add an offset inside the job as well, the offset is correct in terms with a starting vertex list of 0. It grows correcly inside the job
-                                                // BUT: inside the job our vertex list's length grows like: Length: 0, Length: 4, Length: 8... (for each quad), and we add that index to our tri index (hence the index + 0, index + 1, etc)
-                                                // SO: indide each job our triangles match up with the vertcies added starting at 0, starting at 4, starting at 8...
-                                                // HOWEVER: while this is correct, for each greedy meshing algrithim (top, bottom, left, right), our verticies start back at 0 since we pass an empty vertcies list whgen we call our job
-                                                // THIS MEANS: that each triangle has the exast same integer relating to vertext index
+                                             // BUT: inside the job our vertex list's length grows like: Length: 0, Length: 4, Length: 8... (for each quad), and we add that index to our tri index (hence the index + 0, index + 1, etc)
+                                             // SO: indide each job our triangles match up with the vertcies added starting at 0, starting at 4, starting at 8...
+                                             // HOWEVER: while this is correct, for each greedy meshing algrithim (top, bottom, left, right), our verticies start back at 0 since we pass an empty vertcies list whgen we call our job
+                                             // THIS MEANS: that each triangle has the exast same integer relating to vertext index
                                              // When we combine our lists, we have to add ANOTHER offset to account for the fact that inside the jobs our list started at 0
 
         // TRIANGLES WORK LIKE:
-            // 0, 1, 2, 2, 3, 0
-            // Then as we add more verts (4) we add 4 to the index: 4, 5, 6, 7, 7, 4
-            // And then when we add more... 8, 9, 10, 11, 11, 8
-            // So these numbers should keep increasing! However, as mentioned before, when we are inside a job, we pass a new list every greedy meshing algorthim, so we start at 0 each algorithm
-            // we go from 0 to a high number in one algrothmm (like top), but when the next algorithm starts (like right), the vertices list is passed as a new, empty list, and we start at 0 to a high number. 
-            // This is why we, when we combine, add another offset
+        // 0, 1, 2, 2, 3, 0
+        // Then as we add more verts (4) we add 4 to the index: 4, 5, 6, 7, 7, 4
+        // And then when we add more... 8, 9, 10, 11, 11, 8
+        // So these numbers should keep increasing! However, as mentioned before, when we are inside a job, we pass a new list every greedy meshing algorthim, so we start at 0 each algorithm
+        // we go from 0 to a high number in one algrothmm (like top), but when the next algorithm starts (like right), the vertices list is passed as a new, empty list, and we start at 0 to a high number. 
+        // This is why we, when we combine, add another offset
 
         // That was a vert long explanation lol
 
@@ -141,11 +138,6 @@ public class VoxelManager
         greedyMeshReturnValues.backGreedyMesh.blocks.Dispose();
         greedyMeshReturnValues.backGreedyMesh.blockArray1D_back.Dispose();
 
-
-
-
-        GenerateMesh(chunk.chunkObj);
-
     }
 
 
@@ -154,7 +146,7 @@ public class VoxelManager
     {
         foreach (GreedyVertex v in from)
         {
-           to.Add(v);
+            to.Add(v);
         }
     }
 
@@ -167,7 +159,7 @@ public class VoxelManager
     }
 
 
-    private void GenerateMesh(GameObject obj)
+    public void GenerateMesh(GameObject obj)
     {
         Mesh mesh = new Mesh();
 
@@ -203,6 +195,7 @@ public class VoxelManager
         NativeArray<byte> vertical_crossSection_width = crossSections[1];
         NativeArray<byte> vertical_crossSection_length = crossSections[2];
 
+        Chunk[] adjacentChunks = chunk.GetAdjacentChunks();
 
         TopGreedyMesh job_Top = new TopGreedyMesh()
         {
@@ -212,7 +205,7 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(horizontal_crossSection, Allocator.TempJob),
+            blocks = new NativeArray<byte>(horizontal_crossSection.Length, Allocator.TempJob),
 
             verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
             triangles = new NativeList<int>(Allocator.TempJob),
@@ -237,17 +230,9 @@ public class VoxelManager
             colors = colorList
         };
 
-        bool chunkToRight = true;
-        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT] == null)
-        {
-            chunkToRight = false;
-        }
-
+        bool chunkToRight = adjacentChunks[(int)Chunk.Direction.RIGHT] != null;
         NativeArray<byte> blockArray1D_right = new NativeArray<byte>(0, Allocator.TempJob);
-        if (chunkToRight)
-        {
-            blockArray1D_right = new NativeArray<byte>(chunk.GetAdjacentChunks()[(int)Chunk.Direction.RIGHT].blockArray1D, Allocator.TempJob);
-        }
+        if (chunkToRight) { blockArray1D_right = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.RIGHT].blockArray1D, Allocator.TempJob); }
 
         RightGreedyMesh job_Right = new RightGreedyMesh()
         {
@@ -257,7 +242,7 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_width, Allocator.TempJob),
+            blocks = new NativeArray<byte>(vertical_crossSection_width.Length, Allocator.TempJob),
 
             verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
             triangles = new NativeList<int>(Allocator.TempJob),
@@ -268,17 +253,9 @@ public class VoxelManager
             blockArray1D_right = blockArray1D_right
         };
 
-        bool chunkToLeft = true;
-        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT] == null)
-        {
-            chunkToLeft = false;
-        }
-
+        bool chunkToLeft = adjacentChunks[(int)Chunk.Direction.LEFT] != null;
         NativeArray<byte> blockArray1D_left = new NativeArray<byte>(0, Allocator.TempJob);
-        if (chunkToLeft)
-        {
-            blockArray1D_left = new NativeArray<byte>(chunk.GetAdjacentChunks()[(int)Chunk.Direction.LEFT].blockArray1D, Allocator.TempJob);
-        }
+        if (chunkToLeft) { blockArray1D_left = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.LEFT].blockArray1D, Allocator.TempJob); }
 
         LeftGreedyMesh job_Left = new LeftGreedyMesh()
         {
@@ -288,7 +265,7 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_width, Allocator.TempJob),
+            blocks = new NativeArray<byte>(vertical_crossSection_width.Length, Allocator.TempJob),
 
             verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
             triangles = new NativeList<int>(Allocator.TempJob),
@@ -299,17 +276,9 @@ public class VoxelManager
             blockArray1D_left = blockArray1D_left
         };
 
-        bool chunkToFront = true;
-        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD] == null)
-        {
-            chunkToFront = false;
-        }
-
+        bool chunkToFront = adjacentChunks[(int)Chunk.Direction.FORWARD] != null;
         NativeArray<byte> blockArray1D_front = new NativeArray<byte>(0, Allocator.TempJob);
-        if (chunkToFront)
-        {
-            blockArray1D_front = new NativeArray<byte>(chunk.GetAdjacentChunks()[(int)Chunk.Direction.FORWARD].blockArray1D, Allocator.TempJob);
-        }
+        if (chunkToFront) { blockArray1D_front = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.FORWARD].blockArray1D, Allocator.TempJob); }
 
         FrontGreedyMesh job_Front = new FrontGreedyMesh()
         {
@@ -319,7 +288,7 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_length, Allocator.TempJob),
+            blocks = new NativeArray<byte>(vertical_crossSection_length.Length, Allocator.TempJob),
 
             verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
             triangles = new NativeList<int>(Allocator.TempJob),
@@ -330,17 +299,9 @@ public class VoxelManager
             blockArray1D_front = blockArray1D_front
         };
 
-        bool chunkToBack = true;
-        if (chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK] == null)
-        {
-            chunkToBack = false;
-        }
-
+        bool chunkToBack = adjacentChunks[(int)Chunk.Direction.BACK] != null;
         NativeArray<byte> blockArray1D_back = new NativeArray<byte>(0, Allocator.TempJob);
-        if (chunkToBack)
-        {
-            blockArray1D_back = new NativeArray<byte>(chunk.GetAdjacentChunks()[(int)Chunk.Direction.BACK].blockArray1D, Allocator.TempJob);
-        }
+        if (chunkToBack) { blockArray1D_back = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.BACK].blockArray1D, Allocator.TempJob); }
 
         BackGreedyMesh job_Back = new BackGreedyMesh()
         {
@@ -350,7 +311,7 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_length, Allocator.TempJob),
+            blocks = new NativeArray<byte>(vertical_crossSection_length.Length, Allocator.TempJob),
 
             verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
             triangles = new NativeList<int>(Allocator.TempJob),
@@ -363,7 +324,7 @@ public class VoxelManager
 
         JobHandle topHandle = job_Top.Schedule();
         JobHandle bottomHandle = job_Bottom.Schedule();
-        JobHandle rightHandle = job_Right.Schedule(); 
+        JobHandle rightHandle = job_Right.Schedule();
         JobHandle leftHandle = job_Left.Schedule();
         JobHandle frontHandle = job_Front.Schedule();
         JobHandle backHandle = job_Back.Schedule();
@@ -393,14 +354,20 @@ public class VoxelManager
     [BurstCompile]
     public struct TopGreedyMesh : IJob
     {
+        [ReadOnly]
         public int chunkWidth, chunkLength, chunkHeight;
+
+        [ReadOnly]
         public float blockSize;
 
         [ReadOnly]
         public NativeArray<byte> blockArray1D;
+
         public NativeArray<byte> blocks;
 
         public NativeList<GreedyVertex> verticies;
+
+        [WriteOnly]
         public NativeList<int> triangles;
 
         [ReadOnly]
@@ -506,7 +473,10 @@ public class VoxelManager
     [BurstCompile]
     public struct BottomGreedyMesh : IJob
     {
+        [ReadOnly]
         public int chunkWidth, chunkLength, chunkHeight;
+
+        [ReadOnly]
         public float blockSize;
 
         [ReadOnly]
@@ -514,6 +484,8 @@ public class VoxelManager
         public NativeArray<byte> blocks;
 
         public NativeList<GreedyVertex> verticies;
+
+        [WriteOnly]
         public NativeList<int> triangles;
 
         [ReadOnly]
@@ -581,7 +553,7 @@ public class VoxelManager
                         {
                             for (int j = 0; j < length; j++)
                             {
-                                blocks[(x + i) + (chunkWidth* (z + j))] = 0;
+                                blocks[(x + i) + (chunkWidth * (z + j))] = 0;
                             }
                         }
 
@@ -621,7 +593,10 @@ public class VoxelManager
     [BurstCompile]
     public struct RightGreedyMesh : IJob
     {
+        [ReadOnly]
         public int chunkWidth, chunkLength, chunkHeight;
+
+        [ReadOnly]
         public float blockSize;
 
         [ReadOnly]
@@ -629,12 +604,17 @@ public class VoxelManager
         public NativeArray<byte> blocks;
 
         public NativeList<GreedyVertex> verticies;
+
+        [WriteOnly]
         public NativeList<int> triangles;
 
         [ReadOnly]
         public NativeArray<Color32> colors;
 
+        [ReadOnly]
         public bool chunkToRight;
+
+        [ReadOnly]
         public NativeArray<byte> blockArray1D_right;
 
         public void Execute()
@@ -680,7 +660,7 @@ public class VoxelManager
                         if (blockID == 0) { continue; }
 
                         int height = 0;
-                        while (y + height < chunkHeight && blocks[z + (chunkLength* (y + height))] == blockID)
+                        while (y + height < chunkHeight && blocks[z + (chunkLength * (y + height))] == blockID)
                         {
                             height++;
                         }
@@ -747,7 +727,10 @@ public class VoxelManager
     [BurstCompile]
     public struct LeftGreedyMesh : IJob
     {
+        [ReadOnly]
         public int chunkWidth, chunkLength, chunkHeight;
+
+        [ReadOnly]
         public float blockSize;
 
         [ReadOnly]
@@ -755,12 +738,17 @@ public class VoxelManager
         public NativeArray<byte> blocks;
 
         public NativeList<GreedyVertex> verticies;
+
+        [WriteOnly]
         public NativeList<int> triangles;
 
         [ReadOnly]
         public NativeArray<Color32> colors;
 
+        [ReadOnly]
         public bool chunkToLeft;
+
+        [ReadOnly]
         public NativeArray<byte> blockArray1D_left;
 
         public void Execute()
@@ -873,7 +861,10 @@ public class VoxelManager
     [BurstCompile]
     public struct FrontGreedyMesh : IJob
     {
+        [ReadOnly]
         public int chunkWidth, chunkLength, chunkHeight;
+
+        [ReadOnly]
         public float blockSize;
 
         [ReadOnly]
@@ -881,12 +872,17 @@ public class VoxelManager
         public NativeArray<byte> blocks;
 
         public NativeList<GreedyVertex> verticies;
+
+        [WriteOnly]
         public NativeList<int> triangles;
 
         [ReadOnly]
         public NativeArray<Color32> colors;
 
+        [ReadOnly]
         public bool chunkToFront;
+
+        [ReadOnly]
         public NativeArray<byte> blockArray1D_front;
 
         public void Execute()
@@ -1003,7 +999,10 @@ public class VoxelManager
     [BurstCompile]
     public struct BackGreedyMesh : IJob
     {
+        [ReadOnly]
         public int chunkWidth, chunkLength, chunkHeight;
+
+        [ReadOnly]
         public float blockSize;
 
         [ReadOnly]
@@ -1011,12 +1010,17 @@ public class VoxelManager
         public NativeArray<byte> blocks;
 
         public NativeList<GreedyVertex> verticies;
+
+        [WriteOnly]
         public NativeList<int> triangles;
 
         [ReadOnly]
         public NativeArray<Color32> colors;
 
+        [ReadOnly]
         public bool chunkToBack;
+
+        [ReadOnly]
         public NativeArray<byte> blockArray1D_back;
 
         public void Execute()
