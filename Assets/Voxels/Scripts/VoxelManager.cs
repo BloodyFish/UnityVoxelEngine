@@ -43,11 +43,11 @@ public class VoxelManager
 
 
         //Create an array of the visible blocks:
-        NativeArray<byte> horizontal_crossSection = new NativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_LENGTH, Allocator.TempJob);
-        NativeArray<byte> vertical_CrossSection_width = new NativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_HEIGHT, Allocator.TempJob);
-        NativeArray<byte> vertical_CrossSection_length = new NativeArray<byte>(Chunk.CHUNK_LENGTH * Chunk.CHUNK_HEIGHT, Allocator.TempJob);
+        NativeArray<byte> horizontal_crossSection = new NativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_LENGTH, Allocator.Persistent); // NOTE THE USE OF PERSISTENT!!! This is for jobs that last multiple frames!
+        NativeArray<byte> vertical_CrossSection_width = new NativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_HEIGHT, Allocator.Persistent);
+        NativeArray<byte> vertical_CrossSection_length = new NativeArray<byte>(Chunk.CHUNK_LENGTH * Chunk.CHUNK_HEIGHT, Allocator.Persistent);
 
-        NativeArray<Color32> colorList = new NativeArray<Color32>(Generation.instance.blockList.blocks.Count, Allocator.TempJob);
+        NativeArray<Color32> colorList = new NativeArray<Color32>(Generation.instance.blockList.blocks.Count, Allocator.Persistent);
         int i = 0;
         foreach (Block block in Generation.instance.blockList.blocks)
         {
@@ -189,7 +189,7 @@ public class VoxelManager
     public GreedyMeshReturnValues GreedyMeshJob(Chunk chunk, NativeList<GreedyVertex> verticies, NativeList<int> triangles, NativeArray<Color32> colorList, params NativeArray<byte>[] crossSections)
     {
         NativeList<JobHandle> jobHandles = new NativeList<JobHandle>(Allocator.Persistent);
-        NativeArray<byte> blockArray1D = new NativeArray<byte>(chunk.blockArray1D, Allocator.TempJob);
+        NativeArray<byte> blockArray1D = new NativeArray<byte>(chunk.blockArray1D, Allocator.Persistent);
 
         NativeArray<byte> horizontal_crossSection = crossSections[0];
         NativeArray<byte> vertical_crossSection_width = crossSections[1];
@@ -205,10 +205,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(horizontal_crossSection.Length, Allocator.TempJob),
+            blocks = new NativeArray<byte>(horizontal_crossSection.Length, Allocator.Persistent),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
-            triangles = new NativeList<int>(Allocator.TempJob),
+            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
+            triangles = new NativeList<int>(Allocator.Persistent),
 
             colors = colorList
 
@@ -222,17 +222,17 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(horizontal_crossSection, Allocator.TempJob),
+            blocks = new NativeArray<byte>(horizontal_crossSection, Allocator.Persistent),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
-            triangles = new NativeList<int>(Allocator.TempJob),
+            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
+            triangles = new NativeList<int>(Allocator.Persistent),
 
             colors = colorList
         };
 
         bool chunkToRight = adjacentChunks[(int)Chunk.Direction.RIGHT] != null;
-        NativeArray<byte> blockArray1D_right = new NativeArray<byte>(0, Allocator.TempJob);
-        if (chunkToRight) { blockArray1D_right = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.RIGHT].blockArray1D, Allocator.TempJob); }
+        NativeArray<byte> blockArray1D_right = new NativeArray<byte>(0, Allocator.Persistent);
+        if (chunkToRight) { blockArray1D_right = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.RIGHT].blockArray1D, Allocator.Persistent); }
 
         RightGreedyMesh job_Right = new RightGreedyMesh()
         {
@@ -242,10 +242,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_width.Length, Allocator.TempJob),
+            blocks = new NativeArray<byte>(vertical_crossSection_width.Length, Allocator.Persistent),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
-            triangles = new NativeList<int>(Allocator.TempJob),
+            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
+            triangles = new NativeList<int>(Allocator.Persistent),
 
             colors = colorList,
 
@@ -254,8 +254,8 @@ public class VoxelManager
         };
 
         bool chunkToLeft = adjacentChunks[(int)Chunk.Direction.LEFT] != null;
-        NativeArray<byte> blockArray1D_left = new NativeArray<byte>(0, Allocator.TempJob);
-        if (chunkToLeft) { blockArray1D_left = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.LEFT].blockArray1D, Allocator.TempJob); }
+        NativeArray<byte> blockArray1D_left = new NativeArray<byte>(0, Allocator.Persistent);
+        if (chunkToLeft) { blockArray1D_left = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.LEFT].blockArray1D, Allocator.Persistent); }
 
         LeftGreedyMesh job_Left = new LeftGreedyMesh()
         {
@@ -265,10 +265,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_width.Length, Allocator.TempJob),
+            blocks = new NativeArray<byte>(vertical_crossSection_width.Length, Allocator.Persistent),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
-            triangles = new NativeList<int>(Allocator.TempJob),
+            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
+            triangles = new NativeList<int>(Allocator.Persistent),
 
             colors = colorList,
 
@@ -277,8 +277,8 @@ public class VoxelManager
         };
 
         bool chunkToFront = adjacentChunks[(int)Chunk.Direction.FORWARD] != null;
-        NativeArray<byte> blockArray1D_front = new NativeArray<byte>(0, Allocator.TempJob);
-        if (chunkToFront) { blockArray1D_front = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.FORWARD].blockArray1D, Allocator.TempJob); }
+        NativeArray<byte> blockArray1D_front = new NativeArray<byte>(0, Allocator.Persistent);
+        if (chunkToFront) { blockArray1D_front = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.FORWARD].blockArray1D, Allocator.Persistent); }
 
         FrontGreedyMesh job_Front = new FrontGreedyMesh()
         {
@@ -288,10 +288,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_length.Length, Allocator.TempJob),
+            blocks = new NativeArray<byte>(vertical_crossSection_length.Length, Allocator.Persistent),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
-            triangles = new NativeList<int>(Allocator.TempJob),
+            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
+            triangles = new NativeList<int>(Allocator.Persistent),
 
             colors = colorList,
 
@@ -300,8 +300,8 @@ public class VoxelManager
         };
 
         bool chunkToBack = adjacentChunks[(int)Chunk.Direction.BACK] != null;
-        NativeArray<byte> blockArray1D_back = new NativeArray<byte>(0, Allocator.TempJob);
-        if (chunkToBack) { blockArray1D_back = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.BACK].blockArray1D, Allocator.TempJob); }
+        NativeArray<byte> blockArray1D_back = new NativeArray<byte>(0, Allocator.Persistent);
+        if (chunkToBack) { blockArray1D_back = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.BACK].blockArray1D, Allocator.Persistent); }
 
         BackGreedyMesh job_Back = new BackGreedyMesh()
         {
@@ -311,10 +311,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_length.Length, Allocator.TempJob),
+            blocks = new NativeArray<byte>(vertical_crossSection_length.Length, Allocator.Persistent),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.TempJob),
-            triangles = new NativeList<int>(Allocator.TempJob),
+            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
+            triangles = new NativeList<int>(Allocator.Persistent),
 
             colors = colorList,
 

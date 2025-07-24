@@ -59,7 +59,7 @@ public class Chunk
                 if (adj_chunk != null && adj_chunk.isGenerated)
                 {
                     adj_chunk.voxelManager.GreedyMesh(adj_chunk);
-                    Thread.Sleep(10);
+                    Thread.Sleep(1);
                 }
             }
         }).ContinueWith(task =>
