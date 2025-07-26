@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using Voxels.Scripts.Utils;
 
 public class Generation : MonoBehaviour
 {
@@ -45,19 +46,35 @@ public class Generation : MonoBehaviour
         contentalness_2 = new Noise(16, 16, 0.1f, Noise.NoiseType.SIMPLEX);
         contentalness_3 = new Noise(16, 16, 1f, Noise.NoiseType.SIMPLEX);
 
-        StartCoroutine("InititalizeChunks");
+        StartCoroutine(InititalizeChunks());
     }
 
     private IEnumerator InititalizeChunks()
     {
+        Performance.Reset();
         for (int x = 0; x < 16; x++)
         {
             for (int z = 0; z < 16; z++)
             {
                 Chunk chunk = new Chunk(new Vector3(x, 0, z));
-                yield return null;
+                if (z % 2 == 0) yield return null;
             }
         }
+        Debug.Log("Gathering Metrics.");
+
+        yield return new WaitForSeconds(30);
+        Performance.PerformanceMetric chunkGenMetric = Performance.GetMetric(Performance.ChunkGeneration);
+        Performance.PerformanceMetric greedyMeshMetric = Performance.GetMetric(Performance.ChunkGreedyMeshing);
+        Performance.PerformanceMetric generateMeshMetric = Performance.GetMetric(Performance.ChunkGenerateMesh);
+        
+        PrintMetric("Chunk Generation", chunkGenMetric);
+        PrintMetric("Greedy Meshing", greedyMeshMetric);
+        PrintMetric("Generate Mesh", generateMeshMetric);
+    }
+
+    private void PrintMetric(string label, Performance.PerformanceMetric metric)
+    {
+        Debug.Log($"{label} = total={metric.Total:F}ms, min={metric.Min:F}ms, max={metric.Max:F}ms, mean={metric.Mean:F}ms");
     }
 
 

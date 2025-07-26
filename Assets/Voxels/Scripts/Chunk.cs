@@ -4,6 +4,8 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using UnityEngine;
+using Voxels.Scripts.Dispatcher;
+using Voxels.Scripts.Utils;
 
 
 public class Chunk
@@ -44,41 +46,60 @@ public class Chunk
         blockArray1D = new byte[CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH];
 
         chunks.TryAdd(this.chunkPos, this);
-
-
-        Task.Run(() => GenerateChunk()).ContinueWith(task =>
+        
+        Task.Run(() =>
         {
-            voxelManager.GenerateMesh(chunkObj);
+            var generationEntry = Performance.Begin(Performance.ChunkGeneration);
+            GenerateChunk();
+            generationEntry.End();
 
-        }, TaskScheduler.FromCurrentSynchronizationContext());
-
-
-        Task.Run(() => {
-            foreach (Chunk adj_chunk in GetAdjacentChunks())
+            // Unity does not expose a synchronization context, as such ContinueWith using current context makes no
+            // guarantees about actually running on the main thread. To ensure the generation happens on main thread
+            // make sure there's an object with MainThreadDispatcher component in the scene and submit work to it as so
+            AsyncHelper.RunOnMainThread(() =>
             {
-                if (adj_chunk != null && adj_chunk.isGenerated)
+                var greedyEntry = Performance.Begin(Performance.ChunkGreedyMeshing);
+                VoxelManager.GreedyMeshResult result = voxelManager.GreedyMesh(this);
+                
+                // Due to the job spawning previously happening in threads, it was possible for a chunk to be greedy
+                // meshed twice with the same VoxelManager and simultaneously editing the native arrays, which would
+                // often result in a Unity crash when the voxel array was modified while copying. The greedy mesher now
+                // returns a result struct containing it's own non-shared native arrays for vertices and triangles, and
+                // GenerateMesh now expects the vertices and triangles to be passed in.
+                
+                // The greedy meshing runs as a job, this Then() method uses the AsyncHelper to run code on the main
+                // thread when the job handles are complete, without forcefully blocking until completion. Jobs should
+                // not be schedules from anywhere other than the main thread, and waiting on/completing job handles
+                // from non-main threads can cause issues. So the AsyncHelper checks the completeness each frame until
+                // the job is complete, then calls the handler. It also automatically cleans up the native resources
+                // once complete.
+                result.Then((vertices, triangles) => {
+                    greedyEntry.End();
+                    var entry = Performance.Begin(Performance.ChunkGenerateMesh);
+                    voxelManager.GenerateMesh(chunkObj, vertices, triangles);
+                    entry.End();
+                });
+                
+                foreach (Chunk adj_chunk in GetAdjacentChunks())
                 {
-                    adj_chunk.voxelManager.GreedyMesh(adj_chunk);
-                    Thread.Sleep(1);
+                    if (adj_chunk != null && adj_chunk.isGenerated)
+                    {
+                        adj_chunk.voxelManager.GreedyMesh(adj_chunk).Then((vertices, triangles) =>
+                        {
+                            var entry = Performance.Begin(Performance.ChunkGenerateMesh);
+                            adj_chunk.voxelManager.GenerateMesh(adj_chunk.chunkObj, vertices, triangles);
+                            entry.End();
+                        });
+                    }
                 }
-            }
-        }).ContinueWith(task =>
-        {
-            foreach(Chunk adj_chunk in GetAdjacentChunks()) 
-            {
-                if (adj_chunk != null && adj_chunk.isGenerated)
-                {
-                    adj_chunk.voxelManager.GenerateMesh(adj_chunk.chunkObj);
-                }
-            }
-        }, TaskScheduler.FromCurrentSynchronizationContext());
+            });
+        });
     }
 
 
     public void GenerateChunk()
     {
         SetBlockArray(this);
-        voxelManager.GreedyMesh(this);
     }
     public void SetBlockArray(Chunk chunk)
     {
