@@ -1,8 +1,6 @@
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 using UnityEngine;
 using Voxels.Scripts.Dispatcher;
@@ -94,8 +92,6 @@ public class Chunk
             {
                 var greedyEntry = Performance.Begin(Performance.ChunkGreedyMeshing);
                 VoxelManager.GreedyMeshResult result = voxelManager.GreedyMesh(this);
-                // result.ForceComplete();
-                // greedyEntry.End();
                 
                 // Due to the job spawning previously happening in threads, it was possible for a chunk to be greedy
                 // meshed twice with the same VoxelManager and simultaneously editing the native arrays, which would
@@ -123,17 +119,6 @@ public class Chunk
                     if (adj_chunk != null && adj_chunk.isGenerated)
                     {
                         adj_chunk.MarkDirty();
-                        // var adjGreedyEntry = Performance.Begin(Performance.ChunkGreedyMeshing);
-                        // var adjResult = adj_chunk.voxelManager.GreedyMesh(adj_chunk);
-                        // // adjResult.ForceComplete();
-                        // // adjGreedyEntry.End();
-                        // adjResult.Then((vertices, triangles) =>
-                        // {
-                        //     adjGreedyEntry.End();
-                        //     var entry = Performance.Begin(Performance.ChunkGenerateMesh);
-                        //     adj_chunk.voxelManager.GenerateMesh(adj_chunk.chunkObj, vertices, triangles);
-                        //     entry.End();
-                        // });
                     }
                 }
             });

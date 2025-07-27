@@ -115,10 +115,10 @@ namespace Voxels.Scripts.Dispatcher
                 Interlocked.Increment(ref spawnedTasks);
             }
             
-            // frameTimer++;
-            // if (frameTimer < 4) return;
-            //
-            // frameTimer = 0;
+            frameTimer++;
+            if (frameTimer < 4) return;
+            
+            frameTimer = 0;
             int lastIndex = _asyncHandlers.Count - 1;
             for (int i = lastIndex; i >= 0; i--)
             {
@@ -157,36 +157,6 @@ namespace Voxels.Scripts.Dispatcher
             public void Handle()
             {
                 _handle.Complete();
-                _action?.Invoke();
-            }
-        }
-
-        private class MultiJobAsyncHandler : IAsyncHandler
-        {
-            private readonly IEnumerable<JobHandle> _handles;
-            private readonly Action _action;
-
-            public MultiJobAsyncHandler(IEnumerable<JobHandle> handles, Action action)
-            {
-                _handles = handles;
-                _action = action;
-            }
-
-            public bool IsComplete()
-            {
-                foreach (var jobHandle in _handles)
-                {
-                    if (!jobHandle.IsCompleted) return false;
-                }
-                return true;
-            }
-
-            public void Handle()
-            {
-                foreach (var jobHandle in _handles)
-                {
-                    jobHandle.Complete();
-                }
                 _action?.Invoke();
             }
         }
