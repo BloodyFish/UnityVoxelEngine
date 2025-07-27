@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -38,6 +39,18 @@ public class Generation : MonoBehaviour
         }
 
     }
+
+    private void Update()
+    {
+        if (Chunk.dirtyChunks.Count == 0) return;
+
+        foreach (var chunk in Chunk.dirtyChunks)
+        {
+            chunk.Remesh();
+        }
+        Chunk.dirtyChunks.Clear();
+    }
+
     private void Start()
     {
         GenerateSeed();

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
@@ -9,8 +11,15 @@ namespace Voxels.Scripts.Dispatcher
 {
     public class AsyncHelper : MonoBehaviour
     {
+        private const int MaxTasksSpawned = 4;
+        
         private static readonly ConcurrentQueue<Action> _actionQueue = new ();
         private static readonly List<IAsyncHandler> _asyncHandlers = new ();
+        private static readonly ConcurrentQueue<Action> _queuedTasks = new ();
+        private static int spawnedTasks = 0;
+
+        private static ConcurrentDictionary<IDisposable, byte> nativeObjects = new();
+        
 
         private int frameTimer = 0;
 
@@ -18,6 +27,67 @@ namespace Voxels.Scripts.Dispatcher
         {
             bool IsComplete();
             void Handle();
+        }
+
+        private static T TrackNativeObject<T>(T obj) where T : IDisposable
+        {
+            nativeObjects[obj] = 0;
+            return obj;
+        }
+        
+        public static NativeArray<T> CreatePersistentNativeArray<T>(NativeArray<T> existing) where T : struct
+        {
+            return TrackNativeObject(new NativeArray<T>(existing, Allocator.Persistent));
+        }
+        public static NativeArray<T> CreatePersistentNativeArray<T>(T[] existing) where T : struct
+        {
+            return TrackNativeObject(new NativeArray<T>(existing, Allocator.Persistent));
+        }
+        public static NativeArray<T> CreatePersistentNativeArray<T>(
+            int initialCapacity,
+            NativeArrayOptions options = NativeArrayOptions.ClearMemory
+        ) where T : struct {
+            return TrackNativeObject(new NativeArray<T>(initialCapacity, Allocator.Persistent, options));
+        }
+        public static NativeList<T> CreatePersistentNativeList<T>() where T : unmanaged
+        {
+            return TrackNativeObject(new NativeList<T>(Allocator.Persistent));
+        }
+        public static NativeList<T> CreatePersistentNativeList<T>(int initialCapacity) where T : unmanaged
+        {
+            return TrackNativeObject(new NativeList<T>(initialCapacity, Allocator.Persistent));
+        }
+
+        public static void DisposeNativeObject(IDisposable disposable)
+        {
+            if (disposable == null) return;
+            if (!nativeObjects.TryRemove(disposable, out _)) return;
+            disposable.Dispose();
+        }
+        
+        private void OnDestroy()
+        {
+            foreach (var nativeObject in nativeObjects.Keys)
+            {
+                nativeObject.Dispose();
+            }
+        }
+
+        public static void QueueTask(Action action)
+        {
+            _queuedTasks.Enqueue(() =>
+            {
+                action();
+                Interlocked.Decrement(ref spawnedTasks);
+            });
+        }
+
+        public static void QueueTask(Action<Action> action)
+        {
+            _queuedTasks.Enqueue(() =>
+            {
+                action(() => Interlocked.Decrement(ref spawnedTasks));
+            });
         }
         
         public static void RunOnMainThread(Action action)
@@ -32,12 +102,6 @@ namespace Voxels.Scripts.Dispatcher
             _asyncHandlers.Add(new SingleJobAsyncHandler(handle, action));
         }
 
-        public static void RunOnMainThreadWhenComplete(IEnumerable<JobHandle> handles, Action action)
-        {
-            if (action == null || handles == null) return;
-            _asyncHandlers.Add(new MultiJobAsyncHandler(handles, action));
-        }
-
         private void Update()
         {
             while (_actionQueue.TryDequeue(out var action))
@@ -45,10 +109,16 @@ namespace Voxels.Scripts.Dispatcher
                 action();
             }
 
-            frameTimer++;
-            if (frameTimer < 4) return;
-
-            frameTimer = 0;
+            while (spawnedTasks < MaxTasksSpawned && _queuedTasks.TryDequeue(out var action))
+            {
+                Task.Run(action);
+                Interlocked.Increment(ref spawnedTasks);
+            }
+            
+            // frameTimer++;
+            // if (frameTimer < 4) return;
+            //
+            // frameTimer = 0;
             int lastIndex = _asyncHandlers.Count - 1;
             for (int i = lastIndex; i >= 0; i--)
             {

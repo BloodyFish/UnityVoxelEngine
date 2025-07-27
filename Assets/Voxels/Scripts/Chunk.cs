@@ -1,5 +1,6 @@
 
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,6 +13,7 @@ public class Chunk
 {
     //public static List<Chunk> chunks = new List<Chunk>();
     public static ConcurrentDictionary<Vector3Int, Chunk> chunks = new ConcurrentDictionary<Vector3Int, Chunk>();
+    public static HashSet<Chunk> dirtyChunks = new ();
 
     public static readonly short CHUNK_WIDTH = (short)(64);
     public static readonly short CHUNK_LENGTH = (short)(64);
@@ -33,6 +35,33 @@ public class Chunk
     public VoxelManager voxelManager = new VoxelManager();
     public bool isGenerated = false;
 
+    private bool isDirty = false;
+    private bool isMeshing = true;
+
+    public void MarkDirty()
+    {
+        isDirty = true;
+        dirtyChunks.Add(this);
+    }
+
+    public bool IsDirty => isDirty;
+
+    public void Remesh()
+    {
+        if (!IsDirty || isMeshing) return;
+        isMeshing = true; // Prevent trying to remesh while already meshing
+        isDirty = false;
+        var greedyEntry = Performance.Begin(Performance.ChunkGreedyMeshing);
+        VoxelManager.GreedyMeshResult result = voxelManager.GreedyMesh(this);
+        result.Then((vertices, triangles) => {
+            greedyEntry.End();
+            var entry = Performance.Begin(Performance.ChunkGenerateMesh);
+            voxelManager.GenerateMesh(chunkObj, vertices, triangles);
+            entry.End();
+            isMeshing = false;
+        });
+    }
+
     public Chunk(Vector3 chunkPos)
     {
         float blockSize = Generation.BLOCK_SIZE;
@@ -47,7 +76,12 @@ public class Chunk
 
         chunks.TryAdd(this.chunkPos, this);
         
-        Task.Run(() =>
+        // Accepting an action in the queued task allows us to manually notify the AsyncHelpder when this thread should
+        // be considered done. QueueTask tries to ensure only a certain number of tasks are running at a given time, if
+        // a task spawns another task or other async action this task will complete before the work is done and another
+        // task will be run from the queue, accepting the completion action will delay the que from starting another
+        // task until we want it to.
+        AsyncHelper.QueueTask(complete =>
         {
             var generationEntry = Performance.Begin(Performance.ChunkGeneration);
             GenerateChunk();
@@ -60,6 +94,8 @@ public class Chunk
             {
                 var greedyEntry = Performance.Begin(Performance.ChunkGreedyMeshing);
                 VoxelManager.GreedyMeshResult result = voxelManager.GreedyMesh(this);
+                // result.ForceComplete();
+                // greedyEntry.End();
                 
                 // Due to the job spawning previously happening in threads, it was possible for a chunk to be greedy
                 // meshed twice with the same VoxelManager and simultaneously editing the native arrays, which would
@@ -78,18 +114,26 @@ public class Chunk
                     var entry = Performance.Begin(Performance.ChunkGenerateMesh);
                     voxelManager.GenerateMesh(chunkObj, vertices, triangles);
                     entry.End();
+                    isMeshing = false;
+                    complete();
                 });
                 
                 foreach (Chunk adj_chunk in GetAdjacentChunks())
                 {
                     if (adj_chunk != null && adj_chunk.isGenerated)
                     {
-                        adj_chunk.voxelManager.GreedyMesh(adj_chunk).Then((vertices, triangles) =>
-                        {
-                            var entry = Performance.Begin(Performance.ChunkGenerateMesh);
-                            adj_chunk.voxelManager.GenerateMesh(adj_chunk.chunkObj, vertices, triangles);
-                            entry.End();
-                        });
+                        adj_chunk.MarkDirty();
+                        // var adjGreedyEntry = Performance.Begin(Performance.ChunkGreedyMeshing);
+                        // var adjResult = adj_chunk.voxelManager.GreedyMesh(adj_chunk);
+                        // // adjResult.ForceComplete();
+                        // // adjGreedyEntry.End();
+                        // adjResult.Then((vertices, triangles) =>
+                        // {
+                        //     adjGreedyEntry.End();
+                        //     var entry = Performance.Begin(Performance.ChunkGenerateMesh);
+                        //     adj_chunk.voxelManager.GenerateMesh(adj_chunk.chunkObj, vertices, triangles);
+                        //     entry.End();
+                        // });
                     }
                 }
             });

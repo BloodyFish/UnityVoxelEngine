@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading;
 using Unity.Mathematics;
 
 namespace Voxels.Scripts.Utils
@@ -29,6 +30,7 @@ namespace Voxels.Scripts.Utils
 
             public void End()
             {
+                if (!Active) return;
                 _activeStopwatch.Stop();
                 timeMs = _activeStopwatch.Elapsed.TotalMilliseconds;
                 Performance.End(this);
@@ -81,14 +83,18 @@ namespace Voxels.Scripts.Utils
             public double Min => min;
             public double Mean => total / count;
             public double Total => total;
+            private readonly object _lock = new ();
             
             public void Push(PerformanceEntry entry)
             {
-                max = math.max(max, entry.timeMs);
-                min = math.min(min, entry.timeMs);
+                lock (_lock)
+                {
+                    max = math.max(max, entry.timeMs);
+                    min = math.min(min, entry.timeMs);
 
-                total += entry.timeMs;
-                count++;
+                    total += entry.timeMs;
+                    count++;
+                }
             }
         }
     }
