@@ -1,8 +1,11 @@
+using System;
+using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Voxels.Scripts.Dispatcher;
 
 
 public class VoxelManager
@@ -13,9 +16,9 @@ public class VoxelManager
         public Color32 color;
     }
 
-    public struct GreedyMeshReturnValues
+    public struct GreedyMeshReturnValues : IDisposable
     {
-        public NativeArray<JobHandle> handles;
+        public JobHandle handle;
 
         public TopGreedyMesh topGreedyMesh;
         public BottomGreedyMesh bottomGreedyMesh;
@@ -23,15 +26,204 @@ public class VoxelManager
         public LeftGreedyMesh leftGreedyMesh;
         public FrontGreedyMesh frontGreedyMesh;
         public BackGreedyMesh backGreedyMesh;
+
+        public int VertexCount()
+        {
+            return topGreedyMesh.verticies.Length
+                   + bottomGreedyMesh.verticies.Length 
+                   + leftGreedyMesh.verticies.Length
+                   + rightGreedyMesh.verticies.Length
+                   + frontGreedyMesh.verticies.Length
+                   + backGreedyMesh.verticies.Length;
+        }
+        public int TrianglesCount()
+        {
+            return topGreedyMesh.triangles.Length
+                   + bottomGreedyMesh.triangles.Length 
+                   + leftGreedyMesh.triangles.Length
+                   + rightGreedyMesh.triangles.Length
+                   + frontGreedyMesh.triangles.Length
+                   + backGreedyMesh.triangles.Length;
+        }
+
+        public void Dispose()
+        {
+            AsyncHelper.DisposeNativeObject(topGreedyMesh.blockArray1D); // Since all jobs share the same blockArray1D, clearing one clears all!
+            AsyncHelper.DisposeNativeObject(topGreedyMesh.triangles);
+            AsyncHelper.DisposeNativeObject(topGreedyMesh.verticies);
+            AsyncHelper.DisposeNativeObject(topGreedyMesh.blocks);
+            
+            AsyncHelper.DisposeNativeObject(bottomGreedyMesh.triangles);
+            AsyncHelper.DisposeNativeObject(bottomGreedyMesh.verticies);
+            AsyncHelper.DisposeNativeObject(bottomGreedyMesh.blocks);
+            
+            AsyncHelper.DisposeNativeObject(leftGreedyMesh.triangles);
+            AsyncHelper.DisposeNativeObject(leftGreedyMesh.verticies);
+            AsyncHelper.DisposeNativeObject(leftGreedyMesh.blocks);
+            AsyncHelper.DisposeNativeObject(leftGreedyMesh.blockArray1D_left);
+            
+            AsyncHelper.DisposeNativeObject(rightGreedyMesh.triangles);
+            AsyncHelper.DisposeNativeObject(rightGreedyMesh.verticies);
+            AsyncHelper.DisposeNativeObject(rightGreedyMesh.blocks);
+            AsyncHelper.DisposeNativeObject(rightGreedyMesh.blockArray1D_right);
+            
+            AsyncHelper.DisposeNativeObject(frontGreedyMesh.triangles);
+            AsyncHelper.DisposeNativeObject(frontGreedyMesh.verticies);
+            AsyncHelper.DisposeNativeObject(frontGreedyMesh.blocks);
+            AsyncHelper.DisposeNativeObject(frontGreedyMesh.blockArray1D_front);
+            
+            AsyncHelper.DisposeNativeObject(backGreedyMesh.triangles);
+            AsyncHelper.DisposeNativeObject(backGreedyMesh.verticies);
+            AsyncHelper.DisposeNativeObject(backGreedyMesh.blocks);
+            AsyncHelper.DisposeNativeObject(backGreedyMesh.blockArray1D_back);
+        }
     }
 
-    private NativeList<GreedyVertex> verticies = new NativeList<GreedyVertex>(Allocator.Persistent);
-    private NativeList<int> triangles = new NativeList<int>(Allocator.Persistent);
-
-    public void GreedyMesh(Chunk chunk)
+    public struct GreedyMeshResult
     {
-        verticies.Clear();
-        triangles.Clear();
+        private GreedyMeshReturnValues returnValues;
+
+        private NativeArray<byte> horizontalCrossSection;
+        private NativeArray<byte> verticalCrossSectionWidth;
+        private NativeArray<byte> verticalCrossSectionLength;
+
+        private NativeArray<Color32> colors;
+
+        public GreedyMeshResult(GreedyMeshReturnValues returnValues,
+            NativeArray<byte> horizontalCrossSection,
+            NativeArray<byte> verticalCrossSectionWidth,
+            NativeArray<byte> verticalCrossSectionLength,
+            NativeArray<Color32> colors
+        ) {
+            this.returnValues = returnValues;
+            
+            this.horizontalCrossSection = horizontalCrossSection;
+            this.verticalCrossSectionWidth = verticalCrossSectionWidth;
+            this.verticalCrossSectionLength = verticalCrossSectionLength;
+            
+            this.colors = colors;
+        }
+
+        public delegate void GreedyMeshResultHandler(NativeList<GreedyVertex> vertices, NativeList<int> triangles);
+        
+        private void CombineTris(NativeList<int> from, NativeList<int> to, int index)
+        {
+            foreach (int t in from)
+            {
+                to.Add(index + t);
+            }
+        }
+
+        public void ForceComplete() => returnValues.handle.Complete();
+        
+        public void Then(GreedyMeshResultHandler handler)
+        {
+            // results have already been disposed, do nothing.
+            if (!horizontalCrossSection.IsCreated) return;
+            
+            GreedyMeshResult self = this;
+            AsyncHelper.RunOnMainThreadWhenComplete(returnValues.handle, () =>
+            {
+                AsyncHelper.DisposeNativeObject(self.returnValues.topGreedyMesh.blocks);
+                
+                AsyncHelper.DisposeNativeObject(self.returnValues.bottomGreedyMesh.blocks);
+                
+                AsyncHelper.DisposeNativeObject(self.returnValues.leftGreedyMesh.blocks);
+                AsyncHelper.DisposeNativeObject(self.returnValues.leftGreedyMesh.blockArray1D_left);
+                
+                AsyncHelper.DisposeNativeObject(self.returnValues.rightGreedyMesh.blocks);
+                AsyncHelper.DisposeNativeObject(self.returnValues.rightGreedyMesh.blockArray1D_right);
+                
+                AsyncHelper.DisposeNativeObject(self.returnValues.frontGreedyMesh.blocks);
+                AsyncHelper.DisposeNativeObject(self.returnValues.frontGreedyMesh.blockArray1D_front);
+                
+                AsyncHelper.DisposeNativeObject(self.returnValues.backGreedyMesh.blocks);
+                AsyncHelper.DisposeNativeObject(self.returnValues.backGreedyMesh.blockArray1D_back);
+                
+                AsyncHelper.DisposeNativeObject(self.horizontalCrossSection);
+                AsyncHelper.DisposeNativeObject(self.verticalCrossSectionWidth);
+                AsyncHelper.DisposeNativeObject(self.verticalCrossSectionLength);
+                
+                AsyncHelper.DisposeNativeObject(self.colors);
+                
+                int vertexCount = self.returnValues.VertexCount();
+                int trianglesCount = self.returnValues.TrianglesCount();
+                
+                NativeList<GreedyVertex> vertices = AsyncHelper.CreatePersistentNativeList<GreedyVertex>(vertexCount);
+                NativeList<int> triangles = AsyncHelper.CreatePersistentNativeList<int>(trianglesCount);
+                
+                // When we add triangles, the number we add is (index + 0), (index + 1).... but in our job, we start with a vertices list that is empty
+                // So even though we add an offset inside the job as well, the offset is correct in terms with a starting vertex list of 0. It grows correcly inside the job
+                // BUT: inside the job our vertex list's length grows like: Length: 0, Length: 4, Length: 8... (for each quad), and we add that index to our tri index (hence the index + 0, index + 1, etc)
+                // SO: indide each job our triangles match up with the vertcies added starting at 0, starting at 4, starting at 8...
+                // HOWEVER: while this is correct, for each greedy meshing algrithim (top, bottom, left, right), our verticies start back at 0 since we pass an empty vertcies list whgen we call our job
+                // THIS MEANS: that each triangle has the exast same integer relating to vertext index
+                // When we combine our lists, we have to add ANOTHER offset to account for the fact that inside the jobs our list started at 0
+                
+                // TRIANGLES WORK LIKE:
+                // 0, 1, 2, 2, 3, 0
+                // Then as we add more verts (4) we add 4 to the index: 4, 5, 6, 7, 7, 4
+                // And then when we add more... 8, 9, 10, 11, 11, 8
+                // So these numbers should keep increasing! However, as mentioned before, when we are inside a job, we pass a new list every greedy meshing algorthim, so we start at 0 each algorithm
+                // we go from 0 to a high number in one algrothmm (like top), but when the next algorithm starts (like right), the vertices list is passed as a new, empty list, and we start at 0 to a high number. 
+                // This is why we, when we combine, add another offset
+
+                // That was a vert long explanation lol
+                
+                self.CombineTris(self.returnValues.topGreedyMesh.triangles, triangles, vertices.Length);
+                vertices.AddRange(self.returnValues.topGreedyMesh.verticies.AsArray());
+                AsyncHelper.DisposeNativeObject(self.returnValues.topGreedyMesh.triangles);
+                AsyncHelper.DisposeNativeObject(self.returnValues.topGreedyMesh.verticies);
+                
+                self.CombineTris(self.returnValues.bottomGreedyMesh.triangles, triangles, vertices.Length);
+                vertices.AddRange(self.returnValues.bottomGreedyMesh.verticies.AsArray());
+                AsyncHelper.DisposeNativeObject(self.returnValues.bottomGreedyMesh.triangles);
+                AsyncHelper.DisposeNativeObject(self.returnValues.bottomGreedyMesh.verticies);
+                
+                self.CombineTris(self.returnValues.leftGreedyMesh.triangles, triangles, vertices.Length);
+                vertices.AddRange(self.returnValues.leftGreedyMesh.verticies.AsArray());
+                AsyncHelper.DisposeNativeObject(self.returnValues.leftGreedyMesh.triangles);
+                AsyncHelper.DisposeNativeObject(self.returnValues.leftGreedyMesh.verticies);
+                
+                self.CombineTris(self.returnValues.rightGreedyMesh.triangles, triangles, vertices.Length);
+                vertices.AddRange(self.returnValues.rightGreedyMesh.verticies.AsArray());
+                AsyncHelper.DisposeNativeObject(self.returnValues.rightGreedyMesh.triangles);
+                AsyncHelper.DisposeNativeObject(self.returnValues.rightGreedyMesh.verticies);
+                
+                self.CombineTris(self.returnValues.frontGreedyMesh.triangles, triangles, vertices.Length);
+                vertices.AddRange(self.returnValues.frontGreedyMesh.verticies.AsArray());
+                AsyncHelper.DisposeNativeObject(self.returnValues.frontGreedyMesh.triangles);
+                AsyncHelper.DisposeNativeObject(self.returnValues.frontGreedyMesh.verticies);
+                
+                self.CombineTris(self.returnValues.backGreedyMesh.triangles, triangles, vertices.Length);
+                vertices.AddRange(self.returnValues.backGreedyMesh.verticies.AsArray());
+                AsyncHelper.DisposeNativeObject(self.returnValues.topGreedyMesh.triangles);
+                AsyncHelper.DisposeNativeObject(self.returnValues.topGreedyMesh.verticies);
+                
+                handler(vertices, triangles);
+
+                AsyncHelper.DisposeNativeObject(vertices);
+                AsyncHelper.DisposeNativeObject(triangles);
+                
+                AsyncHelper.DisposeNativeObject(self.returnValues.topGreedyMesh.blockArray1D);
+            });
+        }
+
+
+        public void Cleanup()
+        {
+            returnValues.Dispose();
+            
+            AsyncHelper.DisposeNativeObject(horizontalCrossSection);
+            AsyncHelper.DisposeNativeObject(verticalCrossSectionWidth);
+            AsyncHelper.DisposeNativeObject(verticalCrossSectionLength);
+            
+            AsyncHelper.DisposeNativeObject(colors);
+        }
+    }
+
+    public GreedyMeshResult GreedyMesh(Chunk chunk)
+    {
         // We want to take a 2D cross-section of our voxels; a 2D representation of each "layer" on each axis
         // Then, we want to use our greedy meshing algorthim on that cross-section
 
@@ -43,11 +235,11 @@ public class VoxelManager
 
 
         //Create an array of the visible blocks:
-        NativeArray<byte> horizontal_crossSection = new NativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_LENGTH, Allocator.Persistent); // NOTE THE USE OF PERSISTENT!!! This is for jobs that last multiple frames!
-        NativeArray<byte> vertical_CrossSection_width = new NativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_HEIGHT, Allocator.Persistent);
-        NativeArray<byte> vertical_CrossSection_length = new NativeArray<byte>(Chunk.CHUNK_LENGTH * Chunk.CHUNK_HEIGHT, Allocator.Persistent);
+        NativeArray<byte> horizontal_crossSection = AsyncHelper.CreatePersistentNativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_LENGTH); // NOTE THE USE OF PERSISTENT!!! This is for jobs that last multiple frames!
+        NativeArray<byte> vertical_CrossSection_width = AsyncHelper.CreatePersistentNativeArray<byte>(Chunk.CHUNK_WIDTH * Chunk.CHUNK_HEIGHT);
+        NativeArray<byte> vertical_CrossSection_length = AsyncHelper.CreatePersistentNativeArray<byte>(Chunk.CHUNK_LENGTH * Chunk.CHUNK_HEIGHT);
 
-        NativeArray<Color32> colorList = new NativeArray<Color32>(Generation.instance.blockList.blocks.Count, Allocator.Persistent);
+        NativeArray<Color32> colorList = AsyncHelper.CreatePersistentNativeArray<Color32>(Generation.instance.blockList.blocks.Count);
         int i = 0;
         foreach (Block block in Generation.instance.blockList.blocks)
         {
@@ -55,122 +247,29 @@ public class VoxelManager
             i++;
         }
 
-        GreedyMeshReturnValues greedyMeshReturnValues = GreedyMeshJob(chunk, verticies, triangles, colorList, horizontal_crossSection, vertical_CrossSection_width, vertical_CrossSection_length);
-        NativeArray<JobHandle> jobHandles = greedyMeshReturnValues.handles;
-        JobHandle.CompleteAll(jobHandles);
-        jobHandles.Dispose();
+        GreedyMeshReturnValues greedyMeshReturnValues = GreedyMeshJob(chunk, colorList, horizontal_crossSection, vertical_CrossSection_width, vertical_CrossSection_length);
 
-        int vertexOffset = verticies.Length; // When we add triangles, the number we add is (index + 0), (index + 1).... but in our job, we start with a vertices list that is empty
-                                             // So even though we add an offset inside the job as well, the offset is correct in terms with a starting vertex list of 0. It grows correcly inside the job
-                                             // BUT: inside the job our vertex list's length grows like: Length: 0, Length: 4, Length: 8... (for each quad), and we add that index to our tri index (hence the index + 0, index + 1, etc)
-                                             // SO: indide each job our triangles match up with the vertcies added starting at 0, starting at 4, starting at 8...
-                                             // HOWEVER: while this is correct, for each greedy meshing algrithim (top, bottom, left, right), our verticies start back at 0 since we pass an empty vertcies list whgen we call our job
-                                             // THIS MEANS: that each triangle has the exast same integer relating to vertext index
-                                             // When we combine our lists, we have to add ANOTHER offset to account for the fact that inside the jobs our list started at 0
-
-        // TRIANGLES WORK LIKE:
-        // 0, 1, 2, 2, 3, 0
-        // Then as we add more verts (4) we add 4 to the index: 4, 5, 6, 7, 7, 4
-        // And then when we add more... 8, 9, 10, 11, 11, 8
-        // So these numbers should keep increasing! However, as mentioned before, when we are inside a job, we pass a new list every greedy meshing algorthim, so we start at 0 each algorithm
-        // we go from 0 to a high number in one algrothmm (like top), but when the next algorithm starts (like right), the vertices list is passed as a new, empty list, and we start at 0 to a high number. 
-        // This is why we, when we combine, add another offset
-
-        // That was a vert long explanation lol
-
-        NativeArray<byte> blockArray1D = greedyMeshReturnValues.topGreedyMesh.blockArray1D; // Since all jobs share the same blockArray1D, clearing one clears all!
-        blockArray1D.Dispose();
-        colorList.Dispose();
-        horizontal_crossSection.Dispose();
-        vertical_CrossSection_width.Dispose();
-        vertical_CrossSection_length.Dispose();
-
-
-        CombineVerts(greedyMeshReturnValues.topGreedyMesh.verticies, verticies);
-        CombineTris(greedyMeshReturnValues.topGreedyMesh.triangles, triangles, vertexOffset);
-        greedyMeshReturnValues.topGreedyMesh.verticies.Dispose();
-        greedyMeshReturnValues.topGreedyMesh.triangles.Dispose();
-        greedyMeshReturnValues.topGreedyMesh.blocks.Dispose();
-
-        vertexOffset = verticies.Length;
-        CombineVerts(greedyMeshReturnValues.bottomGreedyMesh.verticies, verticies);
-        CombineTris(greedyMeshReturnValues.bottomGreedyMesh.triangles, triangles, vertexOffset);
-        greedyMeshReturnValues.bottomGreedyMesh.verticies.Dispose();
-        greedyMeshReturnValues.bottomGreedyMesh.triangles.Dispose();
-        greedyMeshReturnValues.bottomGreedyMesh.blocks.Dispose();
-
-
-        vertexOffset = verticies.Length;
-        CombineVerts(greedyMeshReturnValues.rightGreedyMesh.verticies, verticies);
-        CombineTris(greedyMeshReturnValues.rightGreedyMesh.triangles, triangles, vertexOffset);
-        greedyMeshReturnValues.rightGreedyMesh.verticies.Dispose();
-        greedyMeshReturnValues.rightGreedyMesh.triangles.Dispose();
-        greedyMeshReturnValues.rightGreedyMesh.blocks.Dispose();
-        greedyMeshReturnValues.rightGreedyMesh.blockArray1D_right.Dispose();
-
-
-
-        vertexOffset = verticies.Length;
-        CombineVerts(greedyMeshReturnValues.leftGreedyMesh.verticies, verticies);
-        CombineTris(greedyMeshReturnValues.leftGreedyMesh.triangles, triangles, vertexOffset);
-        greedyMeshReturnValues.leftGreedyMesh.verticies.Dispose();
-        greedyMeshReturnValues.leftGreedyMesh.triangles.Dispose();
-        greedyMeshReturnValues.leftGreedyMesh.blocks.Dispose();
-        greedyMeshReturnValues.leftGreedyMesh.blockArray1D_left.Dispose();
-
-
-
-        vertexOffset = verticies.Length;
-        CombineVerts(greedyMeshReturnValues.frontGreedyMesh.verticies, verticies);
-        CombineTris(greedyMeshReturnValues.frontGreedyMesh.triangles, triangles, vertexOffset);
-        greedyMeshReturnValues.frontGreedyMesh.verticies.Dispose();
-        greedyMeshReturnValues.frontGreedyMesh.triangles.Dispose();
-        greedyMeshReturnValues.frontGreedyMesh.blocks.Dispose();
-        greedyMeshReturnValues.frontGreedyMesh.blockArray1D_front.Dispose();
-
-
-
-        vertexOffset = verticies.Length;
-        CombineVerts(greedyMeshReturnValues.backGreedyMesh.verticies, verticies);
-        CombineTris(greedyMeshReturnValues.backGreedyMesh.triangles, triangles, vertexOffset);
-        greedyMeshReturnValues.backGreedyMesh.verticies.Dispose();
-        greedyMeshReturnValues.backGreedyMesh.triangles.Dispose();
-        greedyMeshReturnValues.backGreedyMesh.blocks.Dispose();
-        greedyMeshReturnValues.backGreedyMesh.blockArray1D_back.Dispose();
-
+        return new GreedyMeshResult(
+            greedyMeshReturnValues,
+            horizontal_crossSection,
+            vertical_CrossSection_width,
+            vertical_CrossSection_length,
+            colorList
+        );
     }
 
-
-
-    private void CombineVerts(NativeList<GreedyVertex> from, NativeList<GreedyVertex> to)
-    {
-        foreach (GreedyVertex v in from)
-        {
-            to.Add(v);
-        }
-    }
-
-    private void CombineTris(NativeList<int> from, NativeList<int> to, int index)
-    {
-        foreach (int t in from)
-        {
-            to.Add(index + t);
-        }
-    }
-
-
-    public void GenerateMesh(GameObject obj)
+    public void GenerateMesh(GameObject obj, NativeList<GreedyVertex> vertices, NativeList<int> triangles)
     {
         Mesh mesh = new Mesh();
 
         // Setup vertex layout
-        mesh.SetVertexBufferParams(verticies.Length,
+        mesh.SetVertexBufferParams(vertices.Length,
             new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3),
             new VertexAttributeDescriptor(VertexAttribute.Color, VertexAttributeFormat.UNorm8, 4)
         );
 
         // Upload vertex data
-        mesh.SetVertexBufferData(verticies.AsArray(), 0, 0, verticies.Length);
+        mesh.SetVertexBufferData(vertices.AsArray(), 0, 0, vertices.Length);
 
         // Setup index buffer (assuming UInt32)
         mesh.SetIndexBufferParams(triangles.Length, IndexFormat.UInt32);
@@ -186,10 +285,10 @@ public class VoxelManager
     }
 
 
-    public GreedyMeshReturnValues GreedyMeshJob(Chunk chunk, NativeList<GreedyVertex> verticies, NativeList<int> triangles, NativeArray<Color32> colorList, params NativeArray<byte>[] crossSections)
+    public GreedyMeshReturnValues GreedyMeshJob(Chunk chunk, NativeArray<Color32> colorList, params NativeArray<byte>[] crossSections)
     {
         NativeList<JobHandle> jobHandles = new NativeList<JobHandle>(Allocator.Persistent);
-        NativeArray<byte> blockArray1D = new NativeArray<byte>(chunk.blockArray1D, Allocator.Persistent);
+        NativeArray<byte> blockArray1D = AsyncHelper.CreatePersistentNativeArray(chunk.blockArray1D);
 
         NativeArray<byte> horizontal_crossSection = crossSections[0];
         NativeArray<byte> vertical_crossSection_width = crossSections[1];
@@ -205,10 +304,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(horizontal_crossSection.Length, Allocator.Persistent),
+            blocks = AsyncHelper.CreatePersistentNativeArray<byte>(horizontal_crossSection.Length),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
-            triangles = new NativeList<int>(Allocator.Persistent),
+            verticies = AsyncHelper.CreatePersistentNativeList<GreedyVertex>(),
+            triangles = AsyncHelper.CreatePersistentNativeList<int>(),
 
             colors = colorList
 
@@ -222,17 +321,18 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(horizontal_crossSection, Allocator.Persistent),
+            blocks = AsyncHelper.CreatePersistentNativeArray(horizontal_crossSection),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
-            triangles = new NativeList<int>(Allocator.Persistent),
+            verticies = AsyncHelper.CreatePersistentNativeList<GreedyVertex>(),
+            triangles = AsyncHelper.CreatePersistentNativeList<int>(),
 
             colors = colorList
         };
 
         bool chunkToRight = adjacentChunks[(int)Chunk.Direction.RIGHT] != null;
-        NativeArray<byte> blockArray1D_right = new NativeArray<byte>(0, Allocator.Persistent);
-        if (chunkToRight) { blockArray1D_right = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.RIGHT].blockArray1D, Allocator.Persistent); }
+        NativeArray<byte> blockArray1D_right = chunkToRight
+            ? AsyncHelper.CreatePersistentNativeArray(adjacentChunks[(int)Chunk.Direction.RIGHT].blockArray1D)
+            : AsyncHelper.CreatePersistentNativeArray<byte>(0);
 
         RightGreedyMesh job_Right = new RightGreedyMesh()
         {
@@ -242,10 +342,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_width.Length, Allocator.Persistent),
+            blocks = AsyncHelper.CreatePersistentNativeArray<byte>(vertical_crossSection_width.Length),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
-            triangles = new NativeList<int>(Allocator.Persistent),
+            verticies = AsyncHelper.CreatePersistentNativeList<GreedyVertex>(),
+            triangles = AsyncHelper.CreatePersistentNativeList<int>(),
 
             colors = colorList,
 
@@ -254,8 +354,9 @@ public class VoxelManager
         };
 
         bool chunkToLeft = adjacentChunks[(int)Chunk.Direction.LEFT] != null;
-        NativeArray<byte> blockArray1D_left = new NativeArray<byte>(0, Allocator.Persistent);
-        if (chunkToLeft) { blockArray1D_left = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.LEFT].blockArray1D, Allocator.Persistent); }
+        NativeArray<byte> blockArray1D_left = chunkToLeft
+            ? AsyncHelper.CreatePersistentNativeArray(adjacentChunks[(int)Chunk.Direction.LEFT].blockArray1D)
+            : AsyncHelper.CreatePersistentNativeArray<byte>(0);
 
         LeftGreedyMesh job_Left = new LeftGreedyMesh()
         {
@@ -265,10 +366,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_width.Length, Allocator.Persistent),
+            blocks = AsyncHelper.CreatePersistentNativeArray<byte>(vertical_crossSection_width.Length),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
-            triangles = new NativeList<int>(Allocator.Persistent),
+            verticies = AsyncHelper.CreatePersistentNativeList<GreedyVertex>(),
+            triangles = AsyncHelper.CreatePersistentNativeList<int>(),
 
             colors = colorList,
 
@@ -277,8 +378,9 @@ public class VoxelManager
         };
 
         bool chunkToFront = adjacentChunks[(int)Chunk.Direction.FORWARD] != null;
-        NativeArray<byte> blockArray1D_front = new NativeArray<byte>(0, Allocator.Persistent);
-        if (chunkToFront) { blockArray1D_front = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.FORWARD].blockArray1D, Allocator.Persistent); }
+        NativeArray<byte> blockArray1D_front = chunkToFront
+            ? AsyncHelper.CreatePersistentNativeArray(adjacentChunks[(int)Chunk.Direction.FORWARD].blockArray1D)
+            : AsyncHelper.CreatePersistentNativeArray<byte>(0);
 
         FrontGreedyMesh job_Front = new FrontGreedyMesh()
         {
@@ -288,10 +390,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_length.Length, Allocator.Persistent),
+            blocks = AsyncHelper.CreatePersistentNativeArray<byte>(vertical_crossSection_length.Length),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
-            triangles = new NativeList<int>(Allocator.Persistent),
+            verticies = AsyncHelper.CreatePersistentNativeList<GreedyVertex>(),
+            triangles = AsyncHelper.CreatePersistentNativeList<int>(),
 
             colors = colorList,
 
@@ -300,8 +402,9 @@ public class VoxelManager
         };
 
         bool chunkToBack = adjacentChunks[(int)Chunk.Direction.BACK] != null;
-        NativeArray<byte> blockArray1D_back = new NativeArray<byte>(0, Allocator.Persistent);
-        if (chunkToBack) { blockArray1D_back = new NativeArray<byte>(adjacentChunks[(int)Chunk.Direction.BACK].blockArray1D, Allocator.Persistent); }
+        NativeArray<byte> blockArray1D_back = chunkToBack
+            ? AsyncHelper.CreatePersistentNativeArray(adjacentChunks[(int)Chunk.Direction.BACK].blockArray1D)
+            : AsyncHelper.CreatePersistentNativeArray<byte>(0);
 
         BackGreedyMesh job_Back = new BackGreedyMesh()
         {
@@ -311,10 +414,10 @@ public class VoxelManager
             blockSize = Generation.BLOCK_SIZE,
 
             blockArray1D = blockArray1D,
-            blocks = new NativeArray<byte>(vertical_crossSection_length.Length, Allocator.Persistent),
+            blocks = AsyncHelper.CreatePersistentNativeArray<byte>(vertical_crossSection_length.Length),
 
-            verticies = new NativeList<GreedyVertex>(Allocator.Persistent),
-            triangles = new NativeList<int>(Allocator.Persistent),
+            verticies = AsyncHelper.CreatePersistentNativeList<GreedyVertex>(),
+            triangles = AsyncHelper.CreatePersistentNativeList<int>(),
 
             colors = colorList,
 
@@ -328,18 +431,21 @@ public class VoxelManager
         JobHandle leftHandle = job_Left.Schedule();
         JobHandle frontHandle = job_Front.Schedule();
         JobHandle backHandle = job_Back.Schedule();
-
+        
         jobHandles.Add(topHandle);
         jobHandles.Add(bottomHandle);
         jobHandles.Add(rightHandle);
         jobHandles.Add(leftHandle);
         jobHandles.Add(frontHandle);
         jobHandles.Add(backHandle);
-
-
+        
+        JobHandle combinedHandle = JobHandle.CombineDependencies(jobHandles.AsArray());
+        
+        jobHandles.Dispose();
+        
         GreedyMeshReturnValues greedyMeshReturnValues = new GreedyMeshReturnValues()
         {
-            handles = jobHandles.AsArray(),
+            handle = combinedHandle,
             topGreedyMesh = job_Top,
             bottomGreedyMesh = job_Bottom,
             rightGreedyMesh = job_Right,
