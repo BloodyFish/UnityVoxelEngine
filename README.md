@@ -3,14 +3,13 @@ This is my first voxel implementation in Unity. It is still a work in progress.
 <img width="864" height="542" alt="Image" src="https://github.com/user-attachments/assets/8a1b4361-768d-4e04-86d1-e75ff227bcd2" />
 ![Image](https://github.com/user-attachments/assets/411e4ef0-1591-454a-ae65-a3f2546e4f3a)
 
+## 👏 Special Thanks
+Threading made possible because of [Logyrac](https://github.com/Logyrac)
+
 ### 💻 Project Uses:
   * 📈 **Kickstart any voxel project for Unity**
   * 📖 **Learn how voxel-based games work**
   * 📝 **Contribute *your* voxel knowledge**
-
-### 👀 In progress...
-🏃 Making generation *faster!* (This might take a bit)
-  * Threading made possible with guidance from [Logyrac](https://github.com/Logyrac)
 
 ## 🤔 Setting it up
 There a couple of things you need to set up before a voxel world is created:
