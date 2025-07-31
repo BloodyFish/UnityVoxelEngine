@@ -30,7 +30,7 @@ As of right now, there is only one field: `Vertex Color`. This is the color the 
   * Create a `GrassBlock`, `SandBlock`, `StoneBlock`, and `DirtBlock`. Make sure to place these in the coresponding fields in the Generation inspector
 
 ## 📈 Setting up a Contenentalness to Height spline
-  * **NOTE:** as of version 1.0.3, the `Splines` folder was removed, and you do not need to create a spline scriptable object\
+  * **NOTE:** as of version 1.0.3, the `Splines` folder was removed, and you do not need to create a spline scriptable object
 <br />
 
 In your *GenerationManager* (or the object in which you placed the `Generation` script), you can manipulate the `Contentalness To Height` spline to represent how terrain height will respond to "contentalness" (the perlin noise values)
