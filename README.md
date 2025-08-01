@@ -1,6 +1,5 @@
 # UnityVoxelEngine
 <img width="864" height="542" alt="Image" src="https://github.com/user-attachments/assets/8a1b4361-768d-4e04-86d1-e75ff227bcd2" />
-![Image](https://github.com/user-attachments/assets/411e4ef0-1591-454a-ae65-a3f2546e4f3a)
 
 ## 👏 Special Thanks
 Threading made possible because of [Logyrac](https://github.com/Logyrac)
