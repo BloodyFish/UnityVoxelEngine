@@ -4,7 +4,7 @@
 ## 👏 Special Thanks
 Threading made possible because of [Logyrac](https://github.com/Logyrac)
 
-### 💻 Project Uses:
+## 💻 Project Uses:
   * 📈 **Kickstart any voxel project for Unity**
   * 📖 **Learn how voxel-based games work**
   * 📝 **Contribute *your* voxel knowledge**
