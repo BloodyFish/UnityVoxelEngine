@@ -19,6 +19,8 @@ There a couple of things you need to set up before a voxel world is created:
     * The terrain material, `TerrainMat` is in the `Shaders` folder
  4. **(Optional)** Input whatever you want for your seed in the `Input Seed` field! This can be a int or a string. A float will be converted to a string.
     * If left blank, a random seed will be generated
+ 5. Create an empty Game Object. You can call it anything, but something like *AsyncHelper* can help with organization
+ 6. Add the `AsyncHelper` script to the empty object (*Assets > Voxels > Scripts > Dispactcher*)
 
 ## 📋 Setting up a Block List
 In the `Blocks` folder, right click, *Create > VoxelStuff > BlockList* you can name it whatever you like (Recomended: *BlockList*)\
