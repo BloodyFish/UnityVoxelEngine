@@ -142,9 +142,9 @@ public class Chunk
                 float zCoord = (z * blockSize + chunkPos.z);
 
                 float contentalness = Generation.GetContenentalness(xCoord, zCoord);
-                short yVal = (short)Mathf.Ceil(Generation.instance.contenentalnessToHeight_spline.EvaluateAtPoint(contentalness, 100 / blockSize));
+                short yVal = (short)Mathf.Ceil(Generation.instance.continentalnessToHeight_spline.EvaluateAtPoint(contentalness, 100 / blockSize));
                 //Debug.Log(yVal);
-                float slope = Generation.instance.contenentalnessToHeight_spline.GetInstantaneousSlopeAtPoint(contentalness);
+                float slope = Generation.instance.continentalnessToHeight_spline.GetInstantaneousSlopeAtPoint(contentalness);
                 //Debug.Log(slope);
 
                 for (short y = 0; y < yVal; y++)

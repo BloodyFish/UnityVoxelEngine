@@ -157,7 +157,7 @@ Transform:
   m_GameObject: {fileID: 10912987}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 51.551907, y: 30.22109, z: 175.8767}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -517,7 +517,7 @@ MonoBehaviour:
   inputSeed: TestSeed
   seed: 0
   blockList: {fileID: 11400000, guid: e11aa234015dacb49ab4a67b64d1ccce, type: 2}
-  contenentalnessToHeight:
+  continentalnessToHeight:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3

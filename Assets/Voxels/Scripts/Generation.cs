@@ -11,14 +11,13 @@ public class Generation : MonoBehaviour
     public static Generation instance;
     [SerializeField] string inputSeed;
     [HideInInspector] public long seed;
-    
 
     public static readonly float BLOCK_SIZE = 0.25f;
     public BlockList blockList;
     public static Color32[] colorList;
 
-    [SerializeField] AnimationCurve contenentalnessToHeight;
-    [HideInInspector] public Spline contenentalnessToHeight_spline;
+    [SerializeField] AnimationCurve continentalnessToHeight;
+    [HideInInspector] public Spline continentalnessToHeight_spline;
 
     public Material terrainMat;
     public Block mainBlock, underwaterBlock, stoneBlock, dirtBlock;
@@ -28,7 +27,7 @@ public class Generation : MonoBehaviour
     private void Awake()
     {
         instance = this;
-        contenentalnessToHeight_spline = new Spline(contenentalnessToHeight);
+        continentalnessToHeight_spline = new Spline(continentalnessToHeight);
 
         colorList = new Color32[blockList.blocks.Count];
         int i = 0;  
