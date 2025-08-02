@@ -1,5 +1,5 @@
 # UnityVoxelEngine
-<img width="864" height="542" alt="Image" src="https://github.com/user-attachments/assets/8a1b4361-768d-4e04-86d1-e75ff227bcd2" />
+<img width="1782" height="867" alt="Image" src="https://github.com/user-attachments/assets/d1cd1ed6-853a-4347-bd7b-6da7c2ae9809" />
 
 ## 👏 Special Thanks
 Threading made possible because of [Logyrac](https://github.com/Logyrac)
@@ -38,6 +38,8 @@ In your *GenerationManager* (or the object in which you placed the `Generation` 
   * The spline have x-values going from 0-10, and y-values going from 0-100
   * Imagine the x-value of 0 as the bottom of the ocean
   * y = 20 is coastline
+    
+In the `Spline` script (*Assets > Voxels > Scripts*) you can edit the "step" of the spline. A smaller spline value means smoother terrain. If you don't like the default look of the terrain changing height by gradually "stepping," you can change the line `private const float STEP = 0.1f;` to be below the default value of 0.1f.
 
 Below is a good example for a Contentalness to Height spline:\
 <img width="317" height="584" alt="Image" src="https://github.com/user-attachments/assets/b0e81106-6bb7-412e-b97f-dab4c46b005d" />\
