@@ -31,7 +31,7 @@ As of right now, there is only one field: `Vertex Color`. This is the color the 
 
 ## 📈 Setting up a Contenentalness to Height spline (basis for terrain generation)
 **Fun fact:** this method of generating terrain is inspired by the *Minecraft* way of generating terrain!\
-This entire project was inspired by the following talk by *Minecraft* developer Henrik Kniberg\
+This entire project was inspired by the following talk by *Minecraft* developer Henrik Kniberg:\
 [![Reinventing Minecraft world generation by Henrik Kniberg](https://img.youtube.com/vi/ob3VwY4JyzE/0.jpg)](https://www.youtube.com/watch?v=ob3VwY4JyzE&list=LL&index=4&t=1384s)
 
 In your *GenerationManager* (or the object in which you placed the `Generation` script), you can manipulate the `Contentalness To Height` spline to represent how terrain height will respond to "contentalness" (the perlin noise values)
