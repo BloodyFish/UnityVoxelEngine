@@ -25,8 +25,8 @@ In the `Blocks` folder, right click, *Create > VoxelStuff > BlockList* you can n
 Now you can add block types to the `Blocks` field in the block list!
 
 ### 📋 Creating different Block types
-In the `Blocks` folder, right click, *Create > VoxelStuff > Block* you can name it whatever you like (Recommended: *[BlockName]*)\
-As of right now, there is only one field: `Vertex Color`. This is the color the voxel will apear in the world
+In the `Blocks` folder, right click, *Create > VoxelStuff > Block* you can name it whatever you like (Recommended: *BlockName*)\
+As of right now, there is only one field: `Vertex Color`. This is the color the voxel will appear in the world
   * Create a `GrassBlock`, `SandBlock`, `StoneBlock`, and `DirtBlock`. Make sure to place these in the coresponding fields in the Generation inspector
 
 ## 📈 Setting up a Continentalness to Height spline (basis for terrain generation)
@@ -34,13 +34,13 @@ As of right now, there is only one field: `Vertex Color`. This is the color the 
 This entire project was inspired by the following talk by *Minecraft* developer Henrik Kniberg:\
 [![Reinventing Minecraft world generation by Henrik Kniberg](https://img.youtube.com/vi/ob3VwY4JyzE/0.jpg)](https://www.youtube.com/watch?v=ob3VwY4JyzE&list=LL&index=4&t=1384s)
 
-In your *GenerationManager* (or the object in which you placed the `Generation` script), you can manipulate the `Contintalness To Height` spline to represent how terrain height will respond to "contentalness" (the perlin noise values)
-  * The spline have x-values going from 0-10, and y-values going from 0-100
+In your *GenerationManager* (or the object in which you placed the `Generation` script), you can manipulate the `Contintalness To Height` spline to represent how terrain height will respond to "contintalness" (the perlin noise values)
+  * The spline has x-values going from 0-10, and y-values going from 0-1 (during generation, it becomes 0-100)
   * Imagine the x-value of 0 as the bottom of the ocean
   * y = 20 is coastline
     
 In the `Spline` script (*Assets > Voxels > Scripts*) you can edit the "step" of the spline. A smaller spline value means smoother terrain. If you don't like the default look of the terrain changing height by gradually "stepping," you can change the line `private const float STEP = 0.1f;` to be below the default value of 0.1f.
 
 Below is a good example for a Contentalness to Height spline:\
-<img width="317" height="584" alt="Image" src="https://github.com/user-attachments/assets/b0e81106-6bb7-412e-b97f-dab4c46b005d" />\
 <br />
+<img width="317" height="584" alt="Image" src="https://github.com/user-attachments/assets/b0e81106-6bb7-412e-b97f-dab4c46b005d" />
