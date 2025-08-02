@@ -60,11 +60,11 @@ public class Chunk
         });
     }
 
-    public Chunk(Vector3 chunkPos)
+    public Chunk(Vector2 chunkPos)
     {
         float blockSize = Generation.BLOCK_SIZE;
         // Remember, our voxels are smaller than 1 unit. Using "chunkPos.x * CHUNK_WIDTH" would give us spacing as if each block was 1 unit. Multiply to  get correct world space
-        this.chunkPos = new Vector3Int((int)(chunkPos.x * (CHUNK_WIDTH * blockSize)), 0, (int)(chunkPos.z * (CHUNK_LENGTH * blockSize)));
+        this.chunkPos = new Vector3Int((int)(chunkPos.x * (CHUNK_WIDTH * blockSize)), 0, (int)(chunkPos.y * (CHUNK_LENGTH * blockSize)));
 
         this.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer));
         this.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;

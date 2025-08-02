@@ -1,8 +1,6 @@
-using System;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Collections;
+using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using Voxels.Scripts.Utils;
 
@@ -64,14 +62,25 @@ public class Generation : MonoBehaviour
     private IEnumerator InititalizeChunks()
     {
         Performance.Reset();
-        for (int x = 0; x < 16; x++)
-        {
-            for (int z = 0; z < 16; z++)
+
+        Vector2 chunkPos = Vector2.zero;
+        for(int i = 0; i < 256; i++)
+        {       
+            // i % 16 gives you the x coordinate, which cycles from 0 --> 15.
+            // i / 16 gives you the z coordinate, which increases every 16 steps.
+            int x = i % 16;
+            int z = i / 16;
+
+            chunkPos.x = x;
+            chunkPos.y = z;
+            new Chunk(chunkPos);
+            
+            if (i % 2 == 0) // Generates 2 chunks per frame, i.e. we don't "yeild" every single time a chunk is loaded, we yeild when 2 chunks are loaded
             {
-                Chunk chunk = new Chunk(new Vector3(x, 0, z));
-                if (z % 2 == 0) yield return null;
+                yield return null;
             }
         }
+
         Debug.Log("Gathering Metrics.");
 
         yield return new WaitForSeconds(30);
