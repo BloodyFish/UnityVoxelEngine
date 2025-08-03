@@ -134,46 +134,47 @@ public class Chunk
     {
         float blockSize = Generation.BLOCK_SIZE;
 
-        for (short x = 0; x < CHUNK_WIDTH; x++)
+        for(int i = 0; i < CHUNK_WIDTH * CHUNK_LENGTH; i++)
         {
-            for (short z = 0; z < CHUNK_LENGTH; z++)
+            // i % 16 gives you the x coordinate, which cycles from 0 --> 15.
+            // i / 16 gives you the z coordinate, which increases every 16 steps.
+
+            int x = i % CHUNK_WIDTH;
+            int z = i / CHUNK_LENGTH;
+
+            float xCoord = (x * blockSize) + chunkPos.x;
+            float zCoord = (z * blockSize) + chunkPos.z;
+
+            float contentalness = Generation.GetContenentalness(xCoord, zCoord);
+            short yVal = (short)Mathf.Ceil(Generation.instance.continentalnessToHeight_spline.EvaluateAtPoint(contentalness, 100 / blockSize));
+            float slope = Generation.instance.continentalnessToHeight_spline.GetInstantaneousSlopeAtPoint(contentalness);
+
+
+            for (short y = 0; y < yVal; y++)
             {
-                float xCoord = (x * blockSize) + chunkPos.x;
-                float zCoord = (z * blockSize + chunkPos.z);
 
-                float contentalness = Generation.GetContenentalness(xCoord, zCoord);
-                short yVal = (short)Mathf.Ceil(Generation.instance.continentalnessToHeight_spline.EvaluateAtPoint(contentalness, 100 / blockSize));
-                //Debug.Log(yVal);
-                float slope = Generation.instance.continentalnessToHeight_spline.GetInstantaneousSlopeAtPoint(contentalness);
-                //Debug.Log(slope);
-
-                for (short y = 0; y < yVal; y++)
+                if (slope > 1f)
+                {
+                    blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.stoneBlock.block_ID + 1);
+                }
+                else
                 {
 
-                        if (slope > 1f)
-                        {
-                            blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.stoneBlock.block_ID + 1);
-                        }
-                        else
-                        {
+                    if (y <= 20 / blockSize)
+                    {
+                        blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.underwaterBlock.block_ID + 1);
 
-                            if (y <= 20 / blockSize)
-                            {
-                                blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.underwaterBlock.block_ID + 1);
+                    }
+                    else if (y == yVal - 1)
+                    {
+                        blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.mainBlock.block_ID + 1);
 
-                            }
-                            else if (y == yVal - 1)
-                            {
-                                blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.mainBlock.block_ID + 1);
+                    }
+                    else
+                    {
+                        blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.dirtBlock.block_ID + 1);
 
-                            }
-                            else
-                            {
-                                blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.dirtBlock.block_ID + 1);
-
-                            }
-                        }
-                    
+                    }
                 }
 
             }
@@ -190,8 +191,7 @@ public class Chunk
 
     public static Chunk GetChunkFromCoords(int x, int y, int z)
     {
-        Chunk chunk = null;
-        chunks.TryGetValue(new Vector3Int(x, y, z), out chunk);
+        chunks.TryGetValue(new Vector3Int(x, y, z), out Chunk chunk);
         return chunk;
     }
 
