@@ -1,7 +1,7 @@
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-
+using Unity.Collections;
 using UnityEngine;
 using Voxels.Scripts.Dispatcher;
 using Voxels.Scripts.Utils;
@@ -23,8 +23,7 @@ public class Chunk
     public GameObject chunkObj;
     public Vector3Int chunkPos;
 
-    //public byte[,,] blockArray; // these bytes should reference different blocks. If they are 0 it is air. A byte goes to 0-255
-    public byte[] blockArray1D;
+    public NativeArray<byte> blockArray1D = new NativeArray<byte>(CHUNK_WIDTH * CHUNK_LENGTH * CHUNK_HEIGHT, Allocator.Persistent);
     // x + (CHUNK_WIDTH * z) + (CHUNK_WIDTH * CHUNK_LENGTH * y)
 
     public VoxelManager voxelManager = new VoxelManager();
@@ -32,6 +31,7 @@ public class Chunk
 
     private bool isDirty = false;
     private bool isMeshing = true;
+    //public bool isEmpty = true;
 
     public void MarkDirty()
     {
@@ -43,6 +43,7 @@ public class Chunk
 
     public void Remesh()
     {
+
         if (!IsDirty || isMeshing) return;
         isMeshing = true; // Prevent trying to remesh while already meshing
         isDirty = false;
@@ -67,7 +68,7 @@ public class Chunk
         this.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
         this.chunkObj.transform.position = this.chunkPos;
 
-        blockArray1D = new byte[CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH];
+        //blockArray1D = new byte[CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH];
 
         chunks.TryAdd(this.chunkPos, this);
 
@@ -76,6 +77,8 @@ public class Chunk
         // a task spawns another task or other async action this task will complete before the work is done and another
         // task will be run from the queue, accepting the completion action will delay the que from starting another
         // task until we want it to.
+
+
         AsyncHelper.QueueTask(complete =>
         {
             var generationEntry = Performance.Begin(Performance.ChunkGeneration);
@@ -87,6 +90,9 @@ public class Chunk
             // make sure there's an object with MainThreadDispatcher component in the scene and submit work to it as so
             AsyncHelper.RunOnMainThread(() =>
             {
+                // For some reason, the following doesn't work
+                //if(isEmpty) { return };
+
                 var greedyEntry = Performance.Begin(Performance.ChunkGreedyMeshing);
                 VoxelManager.GreedyMeshResult result = voxelManager.GreedyMesh(this);
                 
@@ -129,7 +135,6 @@ public class Chunk
     }
     public void SetBlockArray()
     {
-
         float blockSize = Generation.BLOCK_SIZE;
 
         for(int i = 0; i < CHUNK_WIDTH * CHUNK_LENGTH; i++)
@@ -157,6 +162,7 @@ public class Chunk
                 if (slope > 1f)
                 {
                     blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.stoneBlock.block_ID + 1);
+
                 }
                 else
                 {
@@ -177,7 +183,7 @@ public class Chunk
 
                     }
                 }
-
+                //isEmpty = false;
             }
         }
 
