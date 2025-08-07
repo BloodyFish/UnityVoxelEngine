@@ -54,7 +54,8 @@ public class Spline
 
         for(int t = 0; t <= splineLength; t++)
         {
-            splineValues.TryAdd(t, spline.Evaluate(t * STEP));
+            float value = spline.Evaluate(t * STEP);
+            splineValues.TryAdd(t, value);
         }
     }
 }

@@ -9,6 +9,10 @@ public class Generation : MonoBehaviour
     [HideInInspector] public long seed;
 
     public static readonly float BLOCK_SIZE = 0.25f;
+    public static readonly int WORLD_HEIGHT = 1024;
+    private int subChunks;
+
+
     public BlockList blockList;
     public static Color32[] colorList;
 
@@ -33,6 +37,7 @@ public class Generation : MonoBehaviour
             i++;
         }
 
+         subChunks = (int)(WORLD_HEIGHT * BLOCK_SIZE / 16);
     }
 
     private void Update()
@@ -61,16 +66,21 @@ public class Generation : MonoBehaviour
     {
         Performance.Reset();
 
-        Vector2 chunkPos = Vector2.zero;
-        for(int i = 0; i < 256; i++)
+        Vector3 chunkPos = Vector3.zero;
+
+        for(int i = 16 * 16 * subChunks; i > 0; i--)
         {       
             // i % 16 gives you the x coordinate, which cycles from 0 --> 15.
-            // i / 16 gives you the z coordinate, which increases every 16 steps.
+            // i / 16 gives you the y coordinate, which increases every 16 steps and % subChunks resets to 0 when it completes a cycle.
             int x = i % 16;
-            int z = i / 16;
+            int y = (i / 16) % subChunks;
+
+            int z = i / (16 * subChunks);
 
             chunkPos.x = x;
-            chunkPos.y = z;
+            chunkPos.z = z;
+            chunkPos.y = y;
+            
             new Chunk(chunkPos);
             
             if (i % 2 == 0) // Generates 2 chunks per frame, i.e. we don't "yeild" every single time a chunk is loaded, we yeild when 2 chunks are loaded

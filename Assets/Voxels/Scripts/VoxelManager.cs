@@ -125,9 +125,11 @@ public class VoxelManager
             AsyncHelper.RunOnMainThreadWhenComplete(returnValues.handle, () =>
             {
                 AsyncHelper.DisposeNativeObject(self.returnValues.topGreedyMesh.blocks);
-                
+                AsyncHelper.DisposeNativeObject(self.returnValues.topGreedyMesh.blockArray1D_above);
+
                 AsyncHelper.DisposeNativeObject(self.returnValues.bottomGreedyMesh.blocks);
-                
+                AsyncHelper.DisposeNativeObject(self.returnValues.bottomGreedyMesh.blockArray1D_below);
+
                 AsyncHelper.DisposeNativeObject(self.returnValues.leftGreedyMesh.blocks);
                 AsyncHelper.DisposeNativeObject(self.returnValues.leftGreedyMesh.blockArray1D_left);
                 
@@ -296,6 +298,11 @@ public class VoxelManager
 
         Chunk[] adjacentChunks = chunk.GetAdjacentChunks();
 
+        bool chunkAbove = adjacentChunks[(int)Chunk.Direction.UP] != null;
+        NativeArray<byte> blockArray1D_above = chunkAbove
+            ? AsyncHelper.CreatePersistentNativeArray(adjacentChunks[(int)Chunk.Direction.UP].blockArray1D)
+            : AsyncHelper.CreatePersistentNativeArray<byte>(0);
+
         TopGreedyMesh job_Top = new TopGreedyMesh()
         {
             chunkWidth = Chunk.CHUNK_WIDTH,
@@ -309,9 +316,16 @@ public class VoxelManager
             verticies = AsyncHelper.CreatePersistentNativeList<GreedyVertex>(),
             triangles = AsyncHelper.CreatePersistentNativeList<int>(),
 
-            colors = colorList
-
+            colors = colorList,
+            
+            chunkAbove = chunkAbove,
+            blockArray1D_above = blockArray1D_above
         };
+
+        bool chunkBelow = adjacentChunks[(int)Chunk.Direction.DOWN] != null;
+        NativeArray<byte> blockArray1D_below = chunkBelow
+            ? AsyncHelper.CreatePersistentNativeArray(adjacentChunks[(int)Chunk.Direction.DOWN].blockArray1D)
+            : AsyncHelper.CreatePersistentNativeArray<byte>(0);
 
         BottomGreedyMesh job_Bottom = new BottomGreedyMesh()
         {
@@ -326,7 +340,10 @@ public class VoxelManager
             verticies = AsyncHelper.CreatePersistentNativeList<GreedyVertex>(),
             triangles = AsyncHelper.CreatePersistentNativeList<int>(),
 
-            colors = colorList
+            colors = colorList,
+
+            chunkBelow = chunkBelow,
+            blockArray1D_below = blockArray1D_below
         };
 
         bool chunkToRight = adjacentChunks[(int)Chunk.Direction.RIGHT] != null;
@@ -479,10 +496,18 @@ public class VoxelManager
         [ReadOnly]
         public NativeArray<Color32> colors;
 
+        [ReadOnly]
+        public bool chunkAbove;
+
+        [ReadOnly]
+        public NativeArray<byte> blockArray1D_above;
+
         public void Execute()
         {
             for (int y = chunkHeight - 1; y >= 0; y--)
             {
+                if (y == chunkHeight - 1 && !chunkAbove) { continue; }
+
                 for (int x = 0; x < chunkWidth; x++)
                 {
                     for (int z = 0; z < chunkLength; z++)
@@ -500,7 +525,14 @@ public class VoxelManager
                         }
                         else if (y == chunkHeight - 1)
                         {
-                            blocks[x + (chunkWidth * z)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                            if (blockArray1D_above[x + (chunkWidth * z) + (chunkWidth * chunkLength * 0)] > 0)
+                            {
+                                blocks[x + (chunkLength * z)] = 0;
+                            }
+                            else
+                            {
+                                blocks[x + (chunkWidth * z)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                            }
                         }
                     }
                 }
@@ -597,10 +629,18 @@ public class VoxelManager
         [ReadOnly]
         public NativeArray<Color32> colors;
 
+        [ReadOnly]
+        public bool chunkBelow;
+
+        [ReadOnly]
+        public NativeArray<byte> blockArray1D_below;
+
         public void Execute()
         {
             for (int y = 1; y < chunkHeight - 1; y++) // We start at one becuase we don't actually need to render the bottom of the world. Who will see it?
             {
+                if (y == 0 && !chunkBelow) { continue; }
+
                 for (int x = 0; x < chunkWidth; x++)
                 {
                     for (int z = 0; z < chunkLength; z++)
@@ -619,6 +659,15 @@ public class VoxelManager
                         else if (y == 0)
                         {
                             blocks[x + (chunkWidth * z)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+
+                            if (blockArray1D_below[x + (chunkWidth * z) + (chunkWidth * chunkLength * (chunkHeight - 1))] > 0)
+                            {
+                                blocks[x + (chunkLength * z)] = 0;
+                            }
+                            else
+                            {
+                                blocks[x + (chunkWidth * z)] = blockArray1D[x + (chunkWidth * z) + (chunkWidth * chunkLength * y)];
+                            }
                         }
                     }
                 }

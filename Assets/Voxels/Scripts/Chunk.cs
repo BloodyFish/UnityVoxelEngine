@@ -13,11 +13,11 @@ public class Chunk
     public static ConcurrentDictionary<Vector3Int, Chunk> chunks = new ConcurrentDictionary<Vector3Int, Chunk>();
     public static HashSet<Chunk> dirtyChunks = new ();
 
-    public static readonly short CHUNK_WIDTH = (short)(64);
-    public static readonly short CHUNK_LENGTH = (short)(64);
-    public static readonly short CHUNK_HEIGHT = (short)(2000);
+    public static readonly byte CHUNK_WIDTH = (byte)(16 / Generation.BLOCK_SIZE);
+    public static readonly byte CHUNK_LENGTH = (byte)(16 / Generation.BLOCK_SIZE);
+    public static readonly byte CHUNK_HEIGHT = (byte)(16 / Generation.BLOCK_SIZE);
 
-    public enum Direction { RIGHT = 0, LEFT = 1, FORWARD = 2, BACK = 3}
+    public enum Direction { RIGHT = 0, LEFT = 1, FORWARD = 2, BACK = 3, UP = 4, DOWN = 5}
     public static readonly Direction chunkDirection;
 
     public GameObject chunkObj;
@@ -25,10 +25,7 @@ public class Chunk
 
     //public byte[,,] blockArray; // these bytes should reference different blocks. If they are 0 it is air. A byte goes to 0-255
     public byte[] blockArray1D;
-    // Setting x: just add x
-    // Setting y: add CHUNK_WIDTH + y 
-    // Setting z: add CHUNK_WIDTH + CHUNK_HEIGHT + z
-    // Adding it together: x + (CHUNK_WIDTH * z) + (CHUNK_WIDTH * CHUNK_LENGTH * y)
+    // x + (CHUNK_WIDTH * z) + (CHUNK_WIDTH * CHUNK_LENGTH * y)
 
     public VoxelManager voxelManager = new VoxelManager();
     public bool isGenerated = false;
@@ -60,11 +57,11 @@ public class Chunk
         });
     }
 
-    public Chunk(Vector2 chunkPos)
+    public Chunk(Vector3 chunkPos)
     {
         float blockSize = Generation.BLOCK_SIZE;
         // Remember, our voxels are smaller than 1 unit. Using "chunkPos.x * CHUNK_WIDTH" would give us spacing as if each block was 1 unit. Multiply to  get correct world space
-        this.chunkPos = new Vector3Int((int)(chunkPos.x * (CHUNK_WIDTH * blockSize)), 0, (int)(chunkPos.y * (CHUNK_LENGTH * blockSize)));
+        this.chunkPos = new Vector3Int((int)(chunkPos.x * (CHUNK_WIDTH * blockSize)), (int)(chunkPos.y * (CHUNK_HEIGHT * blockSize)), (int)(chunkPos.z * (CHUNK_LENGTH * blockSize)));
 
         this.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer));
         this.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
@@ -73,7 +70,7 @@ public class Chunk
         blockArray1D = new byte[CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH];
 
         chunks.TryAdd(this.chunkPos, this);
-        
+
         // Accepting an action in the queued task allows us to manually notify the AsyncHelpder when this thread should
         // be considered done. QueueTask tries to ensure only a certain number of tasks are running at a given time, if
         // a task spawns another task or other async action this task will complete before the work is done and another
@@ -128,10 +125,11 @@ public class Chunk
 
     public void GenerateChunk()
     {
-        SetBlockArray(this);
+        SetBlockArray();
     }
-    public void SetBlockArray(Chunk chunk)
+    public void SetBlockArray()
     {
+
         float blockSize = Generation.BLOCK_SIZE;
 
         for(int i = 0; i < CHUNK_WIDTH * CHUNK_LENGTH; i++)
@@ -139,19 +137,22 @@ public class Chunk
             // i % 16 gives you the x coordinate, which cycles from 0 --> 15.
             // i / 16 gives you the z coordinate, which increases every 16 steps.
 
+            // Position in 3D array
             int x = i % CHUNK_WIDTH;
             int z = i / CHUNK_LENGTH;
 
+            // World position
             float xCoord = (x * blockSize) + chunkPos.x;
             float zCoord = (z * blockSize) + chunkPos.z;
 
             float contentalness = Generation.GetContenentalness(xCoord, zCoord);
-            short yVal = (short)Mathf.Ceil(Generation.instance.continentalnessToHeight_spline.EvaluateAtPoint(contentalness, 100 / blockSize));
+            int yVal = (int)Mathf.Ceil(Generation.instance.continentalnessToHeight_spline.EvaluateAtPoint(contentalness, 100 / blockSize));
             float slope = Generation.instance.continentalnessToHeight_spline.GetInstantaneousSlopeAtPoint(contentalness);
 
-
-            for (short y = 0; y < yVal; y++)
+            for (int y = 0; y < CHUNK_HEIGHT; y++)
             {
+                float yCoord = (y  * blockSize) + chunkPos.y;
+                if (yCoord > yVal) { break; }
 
                 if (slope > 1f)
                 {
@@ -160,12 +161,12 @@ public class Chunk
                 else
                 {
 
-                    if (y <= 20 / blockSize)
+                    if (yCoord <= 20 / blockSize)
                     {
                         blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.underwaterBlock.block_ID + 1);
 
                     }
-                    else if (y == yVal - 1)
+                    else if (yCoord == yVal)
                     {
                         blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.mainBlock.block_ID + 1);
 
@@ -199,12 +200,14 @@ public class Chunk
     {
         // TO-DO: Make this work with blockSize
         float blockSize = Generation.BLOCK_SIZE;
-        Chunk[] adjacentChunks = new Chunk[4];
+        Chunk[] adjacentChunks = new Chunk[6];
 
         adjacentChunks[(int)Direction.RIGHT] = GetChunkFromCoords((int)(chunkPos.x + CHUNK_WIDTH * blockSize), chunkPos.y, chunkPos.z);
         adjacentChunks[(int)Direction.LEFT] = GetChunkFromCoords((int)(chunkPos.x - CHUNK_WIDTH * blockSize), chunkPos.y, chunkPos.z);
         adjacentChunks[(int)Direction.FORWARD] = GetChunkFromCoords(chunkPos.x, chunkPos.y, (int)(chunkPos.z + CHUNK_LENGTH * blockSize));
         adjacentChunks[(int)Direction.BACK] = GetChunkFromCoords(chunkPos.x, chunkPos.y, (int)(chunkPos.z - CHUNK_LENGTH * blockSize));
+        adjacentChunks[(int)Direction.UP] = GetChunkFromCoords(chunkPos.x, (int)(chunkPos.y + CHUNK_HEIGHT * blockSize), chunkPos.z);
+        adjacentChunks[(int)Direction.DOWN] = GetChunkFromCoords(chunkPos.x, (int)(chunkPos.y - CHUNK_HEIGHT * blockSize), chunkPos.z);
 
         return adjacentChunks;
     }
