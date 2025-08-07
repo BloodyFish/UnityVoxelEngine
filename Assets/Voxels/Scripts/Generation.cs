@@ -8,8 +8,8 @@ public class Generation : MonoBehaviour
     [SerializeField] string inputSeed;
     [HideInInspector] public long seed;
 
-    public static readonly float BLOCK_SIZE = 0.25f;
-    public static readonly int WORLD_HEIGHT = 1024;
+    public const float BLOCK_SIZE = 0.25f;
+    public const int WORLD_HEIGHT = 1024;
     private int subChunks;
 
 
@@ -74,7 +74,6 @@ public class Generation : MonoBehaviour
             // i / 16 gives you the y coordinate, which increases every 16 steps and % subChunks resets to 0 when it completes a cycle.
             int x = i % 16;
             int y = (i / 16) % subChunks;
-
             int z = i / (16 * subChunks);
 
             chunkPos.x = x;

@@ -13,9 +13,9 @@ public class Chunk
     public static ConcurrentDictionary<Vector3Int, Chunk> chunks = new ConcurrentDictionary<Vector3Int, Chunk>();
     public static HashSet<Chunk> dirtyChunks = new ();
 
-    public static readonly byte CHUNK_WIDTH = (byte)(16 / Generation.BLOCK_SIZE);
-    public static readonly byte CHUNK_LENGTH = (byte)(16 / Generation.BLOCK_SIZE);
-    public static readonly byte CHUNK_HEIGHT = (byte)(16 / Generation.BLOCK_SIZE);
+    public const byte CHUNK_WIDTH = 64;
+    public const byte CHUNK_LENGTH = 64;
+    public const byte CHUNK_HEIGHT = 64;
 
     public enum Direction { RIGHT = 0, LEFT = 1, FORWARD = 2, BACK = 3, UP = 4, DOWN = 5}
     public static readonly Direction chunkDirection;
@@ -156,7 +156,11 @@ public class Chunk
 
             for (int y = 0; y < CHUNK_HEIGHT; y++)
             {
-                float yCoord = (y  * blockSize) + chunkPos.y;
+                // Our chunk position assumes are blocks are 1 by one (by default our blocks are 1/4th the size of a normal block
+                // So our 64 by 64 chunk of 1/4 sized voxels is equal to a 16 by 16 sized chunks of 1 by 1 voxel. 
+                // We divide by blockSize (0.25) to find the actual y position of the voxel
+                float yCoord = y + (chunkPos.y / blockSize);
+
                 if (yCoord > yVal) { break; }
 
                 if (slope > 1f)
