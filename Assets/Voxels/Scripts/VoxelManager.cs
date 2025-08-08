@@ -226,6 +226,7 @@ public class VoxelManager
 
     public GreedyMeshResult GreedyMesh(Chunk chunk)
     {
+
         // We want to take a 2D cross-section of our voxels; a 2D representation of each "layer" on each axis
         // Then, we want to use our greedy meshing algorthim on that cross-section
 

@@ -31,7 +31,7 @@ public class Chunk
 
     private bool isDirty = false;
     private bool isMeshing = true;
-    //public bool isEmpty = true;
+    private bool containsVoxel = false;
 
     public void MarkDirty()
     {
@@ -40,11 +40,12 @@ public class Chunk
     }
 
     public bool IsDirty => isDirty;
+    public bool ContainsVoxel => containsVoxel;
 
     public void Remesh()
     {
 
-        if (!IsDirty || isMeshing) return;
+        if (!IsDirty || isMeshing || !ContainsVoxel) return;
         isMeshing = true; // Prevent trying to remesh while already meshing
         isDirty = false;
         var greedyEntry = Performance.Begin(Performance.ChunkGreedyMeshing);
@@ -68,17 +69,15 @@ public class Chunk
         this.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
         this.chunkObj.transform.position = this.chunkPos;
 
-        //blockArray1D = new byte[CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_LENGTH];
-
         chunks.TryAdd(this.chunkPos, this);
 
         // Accepting an action in the queued task allows us to manually notify the AsyncHelpder when this thread should
         // be considered done. QueueTask tries to ensure only a certain number of tasks are running at a given time, if
         // a task spawns another task or other async action this task will complete before the work is done and another
-        // task will be run from the queue, accepting the completion action will delay the que from starting another
+        // task will be run from the queue, accepting the completion action will delay the queue from starting another
         // task until we want it to.
 
-
+        // NOTE: calling complete() is necessary for the task to offically end
         AsyncHelper.QueueTask(complete =>
         {
             var generationEntry = Performance.Begin(Performance.ChunkGeneration);
@@ -90,8 +89,14 @@ public class Chunk
             // make sure there's an object with MainThreadDispatcher component in the scene and submit work to it as so
             AsyncHelper.RunOnMainThread(() =>
             {
-                // For some reason, the following doesn't work
-                //if(isEmpty) { return };
+                // Only greedy mesh chunks with at least one voxel
+                if (!ContainsVoxel)
+                {
+                    //Debug.Log("chunk does not contain any voxels");
+                    isMeshing = false;
+                    complete();
+                    return;
+                }
 
                 var greedyEntry = Performance.Begin(Performance.ChunkGreedyMeshing);
                 VoxelManager.GreedyMeshResult result = voxelManager.GreedyMesh(this);
@@ -187,7 +192,8 @@ public class Chunk
 
                     }
                 }
-                //isEmpty = false;
+
+                containsVoxel = true;
             }
         }
 
