@@ -13,7 +13,7 @@ Threading made possible because of [Logyrac](https://github.com/Logyrac)
 There a couple of things you need to set up before a voxel world is created:
  1. Create an empty Game Object. You can call it anything, but something like *GenerationManager* can help with organization
  2. Add the `Generation` script to the empty object
- 3. Set up the `Block List`, `Contintalness To Height` spline, `Terrain Material`, specify whether or not you want to `Use Greedy Meshing` (it is recommended), and then add the `Main Block`,  `Underwater Block`, `Stone Block `, and `Dirt Block
+ 3. Set up the `Block List`, `Contintalness To Height` spline, `Terrain Material`, specify whether or not you want to `Use Greedy Meshing` (it is recommended), and then add the `Main Block`,  `Underwater Block`, `Stone Block `, and `Dirt Block`
     * The terrain material, `TerrainMat` is in the `Shaders` folder
  4. **(Optional)** Input whatever you want for your seed in the `Input Seed` field! This can be a int or a string. A float will be converted to a string.
     * If left blank, a random seed will be generated
