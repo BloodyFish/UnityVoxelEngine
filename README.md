@@ -43,4 +43,6 @@ In the `Spline` script (*Assets > Voxels > Scripts*) you can edit the "step" of 
 
 Below is a good example for a Contentalness to Height spline:\
 <br />
-<img width="317" height="584" alt="Image" src="https://github.com/user-attachments/assets/b0e81106-6bb7-412e-b97f-dab4c46b005d" />
+<img width="317" height="584" alt="Image" src="https://github.com/user-attachments/assets/b0e81106-6bb7-412e-b97f-dab4c46b005d" />\
+<br />
+As you can see, we have flat values from `x = 0` to `x = ~4.9` representing the ocean floor. The sharp increase in height from `x = ~4.9` to `x = 5` is the transition to coast. 
