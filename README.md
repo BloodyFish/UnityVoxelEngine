@@ -13,7 +13,7 @@ Threading made possible because of [Logyrac](https://github.com/Logyrac)
 There a couple of things you need to set up before a voxel world is created:
  1. Create an empty Game Object. You can call it anything, but something like *GenerationManager* can help with organization
  2. Add the `Generation` script to the empty object
- 3. Set up the `Block List`, `Contintalness To Height` spline, `Terrain Material`, specify whether or not you want to `Use Greedy Meshing` (it is recommended), and then add the `Main Block`,  `Underwater Block`, `Stone Block `, and `Dirt Block
+ 3. Set up the `Block List`, `Contintalness To Height` spline, `Terrain Material`, specify whether or not you want to `Use Greedy Meshing` (it is recommended), and then add the `Main Block`,  `Underwater Block`, `Stone Block `, and `Dirt Block`
     * The terrain material, `TerrainMat` is in the `Shaders` folder
  4. **(Optional)** Input whatever you want for your seed in the `Input Seed` field! This can be a int or a string. A float will be converted to a string.
     * If left blank, a random seed will be generated
@@ -43,4 +43,6 @@ In the `Spline` script (*Assets > Voxels > Scripts*) you can edit the "step" of 
 
 Below is a good example for a Contentalness to Height spline:\
 <br />
-<img width="317" height="584" alt="Image" src="https://github.com/user-attachments/assets/b0e81106-6bb7-412e-b97f-dab4c46b005d" />
+<img width="317" height="584" alt="Image" src="https://github.com/user-attachments/assets/b0e81106-6bb7-412e-b97f-dab4c46b005d" />\
+<br />
+As you can see, we have flat values from `x = 0` to `x = ~4.9` representing the ocean floor. The sharp increase in height from `x = ~4.9` to `x = 5` is the transition to coast. 
