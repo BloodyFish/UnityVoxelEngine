@@ -1,7 +1,9 @@
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Collections;
+using Unity.VisualScripting;
 using UnityEngine;
 using Voxels.Scripts.Dispatcher;
 using Voxels.Scripts.Utils;
@@ -137,6 +139,9 @@ public class Chunk
     public void GenerateChunk()
     {
         SetBlockArray();
+        //if(ContainsVoxel) RandomizeBlocks();
+        Debug.Log("finished"); // This should be called 4096 times, yet when the above line is uncommented, it is only caled 219 times
+        isGenerated = true;
     }
     public void SetBlockArray()
     {
@@ -149,15 +154,17 @@ public class Chunk
 
             // Position in 3D array
             int x = i % CHUNK_WIDTH;
-            int z = i / CHUNK_LENGTH;
+            int z = i / CHUNK_WIDTH;
 
             // World position
             float xCoord = (x * blockSize) + chunkPos.x;
             float zCoord = (z * blockSize) + chunkPos.z;
 
             float contentalness = Generation.GetContenentalness(xCoord, zCoord);
-            int yVal = (int)Mathf.Ceil(Generation.instance.continentalnessToHeight_spline.EvaluateAtPoint(contentalness, 100 / blockSize));
-            float slope = Generation.instance.continentalnessToHeight_spline.GetInstantaneousSlopeAtPoint(contentalness);
+
+            float slope = new float();
+            int yVal = (int)Mathf.Ceil(Generation.instance.continentalnessToHeight_spline.EvaluateAtPoint(contentalness, 100 / blockSize, out slope));
+            //Debug.Log(slope);
 
             for (int y = 0; y < CHUNK_HEIGHT; y++)
             {
@@ -168,9 +175,10 @@ public class Chunk
 
                 if (yCoord > yVal) { break; }
 
-                if (slope > 1f)
+                int blockIndex = CalculateBlockIndex(x, y, z);
+                if (slope > 3f)
                 {
-                    blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.stoneBlock.block_ID + 1);
+                    blockArray1D[blockIndex] = (byte)(Generation.instance.stoneBlock.block_ID + 1);
 
                 }
                 else
@@ -178,26 +186,125 @@ public class Chunk
 
                     if (yCoord <= 20 / blockSize)
                     {
-                        blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.underwaterBlock.block_ID + 1);
+                        blockArray1D[blockIndex] = (byte)(Generation.instance.underwaterBlock.block_ID + 1);
 
                     }
                     else if (yCoord == yVal)
                     {
-                        blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.mainBlock.block_ID + 1);
+                        blockArray1D[blockIndex] = (byte)(Generation.instance.mainBlock.block_ID + 1);
 
                     }
                     else
                     {
-                        blockArray1D[CalculateBlockIndex(x, y, z)] = (byte)(Generation.instance.dirtBlock.block_ID + 1);
+                        blockArray1D[blockIndex] = (byte)(Generation.instance.dirtBlock.block_ID + 1);
 
                     }
                 }
 
-                containsVoxel = true;
+                containsVoxel = true;                
             }
         }
+    }
 
-        isGenerated = true;
+
+    public void RandomizeBlocks()
+    {
+        byte[] originalBlocks = blockArray1D.ToArray();
+        
+        Vector3Int[] directions =
+        {
+            new Vector3Int(0, 1, 0), // Vector3Int UP
+            new Vector3Int(0, -1, 0), // Vector3Int DOWN
+            new Vector3Int(1, 0, 0), // Vector3Int RIGHT
+            new Vector3Int(-1, 0, 0), // Vector3Int LEFT
+            new Vector3Int(0, 0, 1), // Vector3Int FORWARD
+            new Vector3Int(0, 0, -1), //Vector3Int BACK
+        };
+
+        Vector3Int UP = directions[0];
+        Vector3Int DOWN = directions[1];
+        Vector3Int RIGHT = directions[2];
+        Vector3Int LEFT = directions[3];
+        Vector3Int FORWARD = directions[4];
+        Vector3Int BACK = directions[5];
+
+        Vector3Int[] possibleDirections = new Vector3Int[6];
+        int possibleDirections_count = 0;
+
+
+       for (int i = 0; i < CHUNK_WIDTH * CHUNK_LENGTH * CHUNK_HEIGHT; i++)
+       {
+            possibleDirections_count = 0;
+
+            // Position in 3D array
+            int x = i % CHUNK_WIDTH;
+            int z = (i / CHUNK_WIDTH) % CHUNK_LENGTH;
+            int y = i / (CHUNK_LENGTH * CHUNK_HEIGHT);
+
+            int blockIndex = CalculateBlockIndex(x, y, z);
+            if (originalBlocks[blockIndex] == 0) { continue; }
+            Debug.Log(originalBlocks[blockIndex]);
+
+
+            if (x < CHUNK_WIDTH - 1)
+            {
+                if (originalBlocks[CalculateBlockIndex(x + 1, y, z)] > 0) 
+                { 
+                    possibleDirections[possibleDirections_count] = RIGHT; 
+                    possibleDirections_count++;
+                }
+            }
+            if (x > 0)
+            {
+                if (originalBlocks[CalculateBlockIndex(x - 1, y, z)] > 0) 
+                { 
+                    possibleDirections[possibleDirections_count] = LEFT; 
+                    possibleDirections_count++;
+                }
+            }
+            if (y < CHUNK_HEIGHT - 1)
+            {
+                if (originalBlocks[CalculateBlockIndex(x, y + 1, z)] > 0) 
+                { 
+                    possibleDirections[possibleDirections_count] = UP; 
+                    possibleDirections_count++;
+                }
+            }
+            if (y > 0)
+            {
+                if (originalBlocks[CalculateBlockIndex(x, y - 1, z)] > 0) 
+                { 
+                    possibleDirections[possibleDirections_count] = DOWN; 
+                    possibleDirections_count++;
+                }
+            }
+
+            if (z < CHUNK_LENGTH - 1)
+            {
+                if (originalBlocks[CalculateBlockIndex(x, y, z + 1)] > 0) 
+                { 
+                    possibleDirections[possibleDirections_count] = FORWARD; 
+                    possibleDirections_count++;
+                }
+            }
+            if (z > 0)
+            {
+                if (originalBlocks[CalculateBlockIndex(x, y, z - 1)] > 0) 
+                { 
+                    possibleDirections[possibleDirections_count] = BACK; 
+                    possibleDirections_count++;
+                }
+            }
+
+            // Pick random direction
+            if (possibleDirections_count > 0)
+            {
+                Vector3Int chosenDirection = possibleDirections[Random.Range(0, possibleDirections_count)];
+                Vector3Int chosenBlockPos = new Vector3Int(x, y, z) + chosenDirection;
+                blockArray1D[blockIndex] = originalBlocks[CalculateBlockIndex(chosenBlockPos.x, chosenBlockPos.y, chosenBlockPos.z)];
+            }
+            
+       }
     }
 
     public static int CalculateBlockIndex(int x, int y, int z)
