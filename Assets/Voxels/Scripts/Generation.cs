@@ -7,6 +7,7 @@ public class Generation : MonoBehaviour
     public static Generation instance;
     [SerializeField] string inputSeed;
     [HideInInspector] public long seed;
+    [HideInInspector] public static System.Random random;
 
     public const float BLOCK_SIZE = 0.25f;
     public const int WORLD_HEIGHT = 1024;
@@ -37,7 +38,8 @@ public class Generation : MonoBehaviour
             i++;
         }
 
-         subChunks = (int)(WORLD_HEIGHT * BLOCK_SIZE / 16);
+        subChunks = (int)(WORLD_HEIGHT * BLOCK_SIZE / 16);
+        System.Random rand = new System.Random();
     }
 
     private void Update()
@@ -110,7 +112,6 @@ public class Generation : MonoBehaviour
     {
         if(string.IsNullOrWhiteSpace(inputSeed))
         {
-            System.Random random = new System.Random();
             seed = random.Next();
             inputSeed = seed.ToString();
         } 
