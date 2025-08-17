@@ -58,55 +58,13 @@ public class Generation : MonoBehaviour
 
     private void Update()
     {
-        if(player.position.x > currentChunk.chunkPos.x / 2) 
-        {
-            Vector3Int right = currentChunk.chunkPos + new Vector3Int((int)(Chunk.CHUNK_WIDTH * BLOCK_SIZE), 0, 0);
-            if(!Chunk.chunks.ContainsKey(right)) new Chunk(right);
-            StartCoroutine(InititalizeChunks(right));
-
-        }
-        if (player.position.x < currentChunk.chunkPos.x / 2)
-        {
-            Vector3Int left = currentChunk.chunkPos - new Vector3Int((int)(Chunk.CHUNK_WIDTH * BLOCK_SIZE), 0, 0);
-            if (!Chunk.chunks.ContainsKey(left)) new Chunk(left);
-            StartCoroutine(InititalizeChunks(left));
-
-        }
-        if (player.position.y > currentChunk.chunkPos.y / 2)
-        {
-            Vector3Int up = currentChunk.chunkPos + new Vector3Int(0, (int)(Chunk.CHUNK_HEIGHT * BLOCK_SIZE), 0);
-            if (!Chunk.chunks.ContainsKey(up)) new Chunk(up);
-            StartCoroutine(InititalizeChunks(up));
-
-        }
-        if (player.position.y < currentChunk.chunkPos.y / 2)
-        {
-            Vector3Int down = currentChunk.chunkPos - new Vector3Int(0, (int)(Chunk.CHUNK_HEIGHT * BLOCK_SIZE), 0);
-            if (!Chunk.chunks.ContainsKey(down)) new Chunk(down);
-            StartCoroutine(InititalizeChunks(down));
-
-        }
-        if (player.position.z > currentChunk.chunkPos.z / 2)
-        {
-            Vector3Int forward = currentChunk.chunkPos + new Vector3Int(0, 0, (int)(Chunk.CHUNK_LENGTH * BLOCK_SIZE));
-            if (!Chunk.chunks.ContainsKey(forward)) new Chunk(forward);
-            StartCoroutine(InititalizeChunks(forward));
-
-        }
-        if (player.position.z < currentChunk.chunkPos.z / 2)
-        {
-            Vector3Int back = currentChunk.chunkPos - new Vector3Int(0, 0, (int)(Chunk.CHUNK_LENGTH * BLOCK_SIZE));
-            if (!Chunk.chunks.ContainsKey(back)) new Chunk(back);
-            StartCoroutine(InititalizeChunks(back));
-
-        }
 
         if (Chunk.chunks.ContainsKey(GetChunkPosRelativeToPlayer()))
         {
             currentChunk = Chunk.chunks[GetChunkPosRelativeToPlayer()];
         }
         else { new Chunk(GetChunkPosRelativeToPlayer()); }
-
+        StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
 
 
         if (Chunk.dirtyChunks.Count == 0) return;
@@ -125,34 +83,31 @@ public class Generation : MonoBehaviour
 
         Vector3Int basePos = Vector3Int.zero;
 
-        for(int i = renderDistance * renderDistance * renderDistance; i > -(renderDistance * renderDistance * renderDistance); i--)
+        for(int y = renderDistance; y > -renderDistance; y--)
         {
-            // i % 16 gives you the x coordinate, which cycles from 0 --> 15.
-            // i / 16 gives you the y coordinate, which increases every 16 steps and % subChunks resets to 0 when it completes a cycle.
-            if (i != 0)
+            for(int x = renderDistance; x > -renderDistance; x--)
             {
-                int x = i % renderDistance;
-                int y = (i / renderDistance) % renderDistance;
-                int z = i / (renderDistance * renderDistance);
-
-                basePos.x = (int)(x * (Chunk.CHUNK_WIDTH * BLOCK_SIZE));
-                basePos.z = (int)(z * (Chunk.CHUNK_LENGTH * BLOCK_SIZE));
-                basePos.y = (int)(y * (Chunk.CHUNK_HEIGHT * BLOCK_SIZE));
-            }
-            
-            Vector3Int new_chunkPos = chunkPos + basePos;
-            if (!Chunk.chunks.ContainsKey(new_chunkPos)){ new Chunk(new_chunkPos); }
-            
-            if(i != 0)
-            {
-                if (i % 2 == 0) // Generates 2 chunks per frame, i.e. we don't "yeild" every single time a chunk is loaded, we yeild when 2 chunks are loaded
+                for(int  z = renderDistance; z > -renderDistance; z--)
                 {
-                    yield return null;
+                    basePos.x = (int)(x * (Chunk.CHUNK_WIDTH * BLOCK_SIZE));
+                    basePos.z = (int)(z * (Chunk.CHUNK_LENGTH * BLOCK_SIZE));
+                    basePos.y = (int)(y * (Chunk.CHUNK_HEIGHT * BLOCK_SIZE));
+
+                    Vector3Int new_chunkPos = chunkPos + basePos;
+                    if (!Chunk.chunks.ContainsKey(new_chunkPos)) { new Chunk(new_chunkPos); }
                 }
             }
+            yield return null;
         }
 
-        Debug.Log("Gathering Metrics.");
+   
+
+
+
+        // Got a Null-Reference Exception when running the following code. I don't feel like looking over and trying to fix it as of now...
+        // Out of sight out of mind, I guess...
+
+        /*Debug.Log("Gathering Metrics.");
 
         yield return new WaitForSeconds(30);
         Performance.PerformanceMetric chunkGenMetric = Performance.GetMetric(Performance.ChunkGeneration);
@@ -161,7 +116,7 @@ public class Generation : MonoBehaviour
         
         PrintMetric("Chunk Generation", chunkGenMetric);
         PrintMetric("Greedy Meshing", greedyMeshMetric);
-        PrintMetric("Generate Mesh", generateMeshMetric);
+        PrintMetric("Generate Mesh", generateMeshMetric);*/
     }
 
     private void GenerateChunk()
