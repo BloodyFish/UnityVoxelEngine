@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 68e7634ac637d4fa3b93ca66af33aa8a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 196525
+  packageName: Starter Assets - FirstPerson | Updates in new CharacterController
+    package
+  packageVersion: 1.3
+  assetPath: Assets/StarterAssets/Settings/Very Low_PipelineAsset_ForwardRenderer.asset
+  uploadId: 691166

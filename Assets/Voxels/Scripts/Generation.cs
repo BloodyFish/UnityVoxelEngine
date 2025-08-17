@@ -26,7 +26,7 @@ public class Generation : MonoBehaviour
     //PLAYER STUFF
     private Transform player;
     private Chunk currentChunk;
-    private int renderDistance = 4;
+    public int renderDistance = 4;
     private Stack chunksToGenerate = new Stack();
 
     private void Awake()
@@ -62,7 +62,16 @@ public class Generation : MonoBehaviour
 
         if (Chunk.chunks.ContainsKey(GetChunkPosRelativeToPlayer()))
         {
+            //if(currentChunk != null && currentChunk.chunkObj.GetComponent<MeshCollider>() != null) { currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = false; }
+
             currentChunk = Chunk.chunks[GetChunkPosRelativeToPlayer()];
+            if(!currentChunk.chunkObj.GetComponent<MeshCollider>()) 
+            { 
+                currentChunk.chunkObj.AddComponent<MeshCollider>();
+                currentChunk.chunkObj.GetComponent<MeshCollider>().sharedMesh = currentChunk.chunkObj.GetComponent<MeshFilter>().mesh;
+            }
+            else { currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = true; }
+            
         }
         else { new Chunk(GetChunkPosRelativeToPlayer()); }
         StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
@@ -89,7 +98,7 @@ public class Generation : MonoBehaviour
 
         Vector3Int basePos = Vector3Int.zero;
 
-        for(int y = renderDistance; y > -renderDistance; y--)
+        for(int y = (renderDistance / 2); y > -(renderDistance / 2); y--)
         {
             for(int x = renderDistance; x > -renderDistance; x--)
             {
@@ -177,6 +186,26 @@ public class Generation : MonoBehaviour
 
 
         return combined;
+    }
+
+    private void OnDrawGizmos()
+    {
+        Vector3 size = new Vector3(Chunk.CHUNK_WIDTH, Chunk.CHUNK_HEIGHT, Chunk.CHUNK_LENGTH) * BLOCK_SIZE;
+        if (currentChunk != null)
+        {
+            Vector3 center = currentChunk.chunkPos + (size / 2);
+
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireCube(center, size);
+        }
+        foreach(var stackObj in chunksToGenerate)
+        {
+            Vector3 center = (Vector3Int)stackObj + (size / 2);
+
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireCube(center, size);
+
+        }
     }
 
 }

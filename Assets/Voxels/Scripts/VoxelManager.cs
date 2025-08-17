@@ -285,6 +285,7 @@ public class VoxelManager
         mesh.RecalculateBounds();
 
         obj.GetComponent<MeshFilter>().mesh = mesh;
+        //obj.GetComponent<MeshCollider>().sharedMesh = mesh;
     }
 
 
