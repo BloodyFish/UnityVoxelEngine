@@ -27,6 +27,7 @@ public class Generation : MonoBehaviour
     private Transform player;
     private Chunk currentChunk;
     private int renderDistance = 4;
+    private Stack chunksToGenerate = new Stack();
 
     private void Awake()
     {
@@ -66,6 +67,11 @@ public class Generation : MonoBehaviour
         else { new Chunk(GetChunkPosRelativeToPlayer()); }
         StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
 
+        while(chunksToGenerate.Count > 0)
+        {
+            Vector3Int chunkPos = (Vector3Int)chunksToGenerate.Pop();
+            new Chunk(chunkPos);
+        }
 
         if (Chunk.dirtyChunks.Count == 0) return;
 
@@ -94,13 +100,12 @@ public class Generation : MonoBehaviour
                     basePos.y = (int)(y * (Chunk.CHUNK_HEIGHT * BLOCK_SIZE));
 
                     Vector3Int new_chunkPos = chunkPos + basePos;
-                    if (!Chunk.chunks.ContainsKey(new_chunkPos)) { new Chunk(new_chunkPos); }
+                    if (!Chunk.chunks.ContainsKey(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
+
+                    yield return null;
                 }
             }
-            yield return null;
         }
-
-   
 
 
 
