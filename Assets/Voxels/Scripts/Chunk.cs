@@ -78,7 +78,8 @@ public class Chunk
         //this.chunkPos = new Vector3Int((int)(chunkPos.x * (CHUNK_WIDTH * blockSize)), (int)(chunkPos.y * (CHUNK_HEIGHT * blockSize)), (int)(chunkPos.z * (CHUNK_LENGTH * blockSize)));
         this.chunkPos = new Vector3Int((int)chunkPos.x, (int)chunkPos.y, (int)chunkPos.z);
 
-        this.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer));
+        this.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
+        this.chunkObj.GetComponent<MeshCollider>().enabled = false;
         this.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
         this.chunkObj.transform.position = this.chunkPos;
 
