@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b846ecad8a98bd34dba8a5daf996d86e
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 196525
+  packageName: Starter Assets - FirstPerson | Updates in new CharacterController
+    package
+  packageVersion: 1.3
+  assetPath: Assets/StarterAssets/license.txt
+  uploadId: 691166

@@ -39,10 +39,11 @@ public class Chunk
     {
         new Vector3Int(1, 0, 0), // Vector3Int RIGHT
         new Vector3Int(-1, 0, 0), // Vector3Int LEFT
-        new Vector3Int(0, 1, 0), // Vector3Int UP
-        new Vector3Int(0, -1, 0), // Vector3Int DOWN
         new Vector3Int(0, 0, 1), // Vector3Int FORWARD
         new Vector3Int(0, 0, -1), //Vector3Int BACK
+        new Vector3Int(0, 1, 0), // Vector3Int UP
+        new Vector3Int(0, -1, 0), // Vector3Int DOWN
+
     };
 
 
@@ -74,11 +75,12 @@ public class Chunk
 
     public Chunk(Vector3 chunkPos)
     {
-        float blockSize = Generation.BLOCK_SIZE;
         // Remember, our voxels are smaller than 1 unit. Using "chunkPos.x * CHUNK_WIDTH" would give us spacing as if each block was 1 unit. Multiply to  get correct world space
-        this.chunkPos = new Vector3Int((int)(chunkPos.x * (CHUNK_WIDTH * blockSize)), (int)(chunkPos.y * (CHUNK_HEIGHT * blockSize)), (int)(chunkPos.z * (CHUNK_LENGTH * blockSize)));
+        //this.chunkPos = new Vector3Int((int)(chunkPos.x * (CHUNK_WIDTH * blockSize)), (int)(chunkPos.y * (CHUNK_HEIGHT * blockSize)), (int)(chunkPos.z * (CHUNK_LENGTH * blockSize)));
+        this.chunkPos = new Vector3Int((int)chunkPos.x, (int)chunkPos.y, (int)chunkPos.z);
 
-        this.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer));
+        this.chunkObj = new GameObject("Chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider));
+        this.chunkObj.GetComponent<MeshCollider>().enabled = false;
         this.chunkObj.GetComponent<Renderer>().material = Generation.instance.terrainMat;
         this.chunkObj.transform.position = this.chunkPos;
 
@@ -223,15 +225,16 @@ public class Chunk
     {
         byte[] originalBlocks = new byte[blockArray1D.Length];
         blockArray1D.CopyTo(originalBlocks);
+
         
 
-        Vector3Int[] possibleDirections = new Vector3Int[6];
-        int possibleDirections_count;
+        byte[] possibleBlocks = new byte[6];
+        int possibleBlocks_count;
 
 
         for (int i = 0; i < CHUNK_WIDTH * CHUNK_LENGTH * CHUNK_HEIGHT; i++)
         {
-            possibleDirections_count = 0;
+            possibleBlocks_count = 0;
 
             // Position in 3D array
             int x = i % CHUNK_WIDTH;
@@ -239,71 +242,65 @@ public class Chunk
             int y = i / (CHUNK_WIDTH * CHUNK_LENGTH);
 
             int blockIndex = CalculateBlockIndex(x, y, z);
-            if (originalBlocks[blockIndex] == 0) { continue; }
+            byte originalBlock = originalBlocks[blockIndex];
+
+            if (originalBlock == 0) { continue; }
 
 
             if (x < CHUNK_WIDTH - 1)
             {
-                int right = CalculateBlockIndex(x + 1, y, z);
-                if (originalBlocks[right] > 0 && originalBlocks[right] != originalBlocks[blockIndex]) 
-                { 
-                    possibleDirections[possibleDirections_count] = directions[0]; // RIGHT
-                    possibleDirections_count++;
+                byte right = originalBlocks[CalculateBlockIndex(x + 1, y, z)];
+                if (right > 0 && right != originalBlock) 
+                {
+                    possibleBlocks[possibleBlocks_count++] = right;
                 }
             }
             if (x > 0)
             {
-                int left = CalculateBlockIndex(x - 1, y, z);
-                if (originalBlocks[left] > 0 && originalBlocks[left] != originalBlocks[blockIndex]) 
-                { 
-                    possibleDirections[possibleDirections_count] = directions[1]; // LEFT
-                    possibleDirections_count++;
+                byte left = originalBlocks[CalculateBlockIndex(x - 1, y, z)];
+                if (left > 0 && left != originalBlock) 
+                {
+                    possibleBlocks[possibleBlocks_count++] = left;
                 }
             }
             if (y < CHUNK_HEIGHT - 1)
             {
-                int up = CalculateBlockIndex(x, y + 1, z);
-                if (originalBlocks[up] > 0 && originalBlocks[up] != originalBlocks[blockIndex]) 
-                { 
-                    possibleDirections[possibleDirections_count] = directions[2]; // UP
-                    possibleDirections_count++;
+                byte up = originalBlocks[CalculateBlockIndex(x, y + 1, z)];
+                if (up > 0 && up != originalBlock) 
+                {
+                    possibleBlocks[possibleBlocks_count++] = up;
                 }
             }
             if (y > 0)
             {
-                int down = CalculateBlockIndex(x, y - 1, z);
-                if (originalBlocks[down] > 0 && originalBlocks[down] != originalBlocks[blockIndex]) 
-                { 
-                    possibleDirections[possibleDirections_count] = directions[3]; // DOWN
-                    possibleDirections_count++;
+                byte down = originalBlocks[CalculateBlockIndex(x, y - 1, z)];
+                if (down > 0 && down != originalBlock) 
+                {
+                    possibleBlocks[possibleBlocks_count++] = down;
                 }
             }
 
             if (z < CHUNK_LENGTH - 1)
             {
-                int forward = CalculateBlockIndex(x, y, z + 1);
-                if (originalBlocks[forward] > 0 && originalBlocks[forward] != originalBlocks[blockIndex]) 
-                { 
-                    possibleDirections[possibleDirections_count] = directions[4]; // FORWARD
-                    possibleDirections_count++;
+                byte forward = originalBlocks[CalculateBlockIndex(x, y, z + 1)];
+                if (forward > 0 && forward != originalBlock) 
+                {
+                    possibleBlocks[possibleBlocks_count++] = forward;
                 }
             }
             if (z > 0)
             {
-                int back = CalculateBlockIndex(x, y, z - 1);
-                if (originalBlocks[back] > 0 && originalBlocks[back] != originalBlocks[blockIndex]) 
-                { 
-                    possibleDirections[possibleDirections_count] = directions[5]; // BACK
-                    possibleDirections_count++;
+                byte back = originalBlocks[CalculateBlockIndex(x, y, z - 1)];
+                if (back > 0 && back != originalBlock) 
+                {
+                    possibleBlocks[possibleBlocks_count++] = back;
                 }
             }
 
-            // Pick random direction
-            if (possibleDirections_count > 0)
+            if (possibleBlocks_count > 0)
             {
-                Vector3Int chosenDirection = possibleDirections[Generation.random.Next(possibleDirections_count)];
-                Vector3Int chosenBlockPos = new Vector3Int(x, y, z) + chosenDirection;
-                blockArray1D[blockIndex] = originalBlocks[CalculateBlockIndex(chosenBlockPos.x, chosenBlockPos.y, chosenBlockPos.z)];
+                byte chosenBlock = possibleBlocks[Generation.random.Next(0, possibleBlocks_count)];
+                blockArray1D[blockIndex] = chosenBlock;
             }
             
         }
