@@ -86,10 +86,11 @@ public class Generation : MonoBehaviour
             }
 
             currentChunk = Chunk.chunks[GetChunkPosRelativeToPlayer()];
-            if(currentChunk.ContainsVoxel && currentChunk.isGenerated && !currentChunk.chunkObj.GetComponent<MeshCollider>().enabled) 
+            if(currentChunk.isGenerated && !currentChunk.chunkObj.GetComponent<MeshCollider>().enabled) 
             { 
                 currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = true;
                 chunksToGenerate.Clear();
+                StopAllCoroutines();
                 StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
 
             }
@@ -128,20 +129,20 @@ public class Generation : MonoBehaviour
         while(chunkArea.Count > 0)
         {
             Vector3Int new_chunkPos = (Vector3Int)chunkArea.Dequeue();
-            if (!Chunk.chunks.ContainsKey(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
-
 
             if (Chunk.IsInRenderDistance(new_chunkPos))
             {
-                foreach(Vector3Int dir in chunkDirections)
+                if (!Chunk.chunks.ContainsKey(new_chunkPos) || !chunkArea.Contains(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
+
+                foreach (Vector3Int dir in chunkDirections)
                 {
                     Vector3Int dir_one = new_chunkPos + dir;
                     Vector3Int dir_two = new_chunkPos - dir;
 
-                    if (!Chunk.chunks.ContainsKey(dir_one)) { chunkArea.Enqueue(dir_one); }
-                    if (!Chunk.chunks.ContainsKey(dir_two)) { chunkArea.Enqueue(dir_two); }
+                    if (!Chunk.chunks.ContainsKey(dir_one) || !chunkArea.Contains(dir_one)) { chunkArea.Enqueue(dir_one); }
+                    if (!Chunk.chunks.ContainsKey(dir_two) || !chunkArea.Contains(dir_two)) { chunkArea.Enqueue(dir_two); }
 
-                    //yield return null;
+                    yield return null;
                 }
             }
 
