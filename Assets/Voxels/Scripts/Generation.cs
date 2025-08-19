@@ -50,9 +50,9 @@ public class Generation : MonoBehaviour
     {
         GenerateSeed();
 
-        contentalness_1 = new Noise(16, 16, 0.075f, Noise.NoiseType.PERLIN);
-        contentalness_2 = new Noise(16, 16, 0.1f, Noise.NoiseType.SIMPLEX);
-        contentalness_3 = new Noise(16, 16, 1f, Noise.NoiseType.SIMPLEX);
+        contentalness_1 = new Noise(Chunk.CHUNK_WIDTH * BLOCK_SIZE, Chunk.CHUNK_LENGTH * BLOCK_SIZE, 0.075f, Noise.NoiseType.PERLIN);
+        contentalness_2 = new Noise(Chunk.CHUNK_WIDTH * BLOCK_SIZE, Chunk.CHUNK_LENGTH * BLOCK_SIZE, 0.1f, Noise.NoiseType.SIMPLEX);
+        contentalness_3 = new Noise(Chunk.CHUNK_WIDTH * BLOCK_SIZE, Chunk.CHUNK_LENGTH * BLOCK_SIZE, 1f, Noise.NoiseType.SIMPLEX);
 
         GenerateChunk();
     }
@@ -95,9 +95,9 @@ public class Generation : MonoBehaviour
     {
         Performance.Reset();
 
-        Vector3Int basePos = Vector3Int.zero;
+        /*Vector3Int basePos = Vector3Int.zero;
 
-        /*for(int y = (renderDistance / 2); y > -(renderDistance / 2); y--)
+        for(int y = (renderDistance / 2); y > -(renderDistance / 2); y--)
         {
             for(int x = renderDistance; x > -renderDistance; x--)
             {
@@ -119,36 +119,36 @@ public class Generation : MonoBehaviour
         Queue chunkArea = new Queue();
         chunkArea.Enqueue(chunkPos);
 
+
         while(chunkArea.Count > 0)
         {
             Vector3Int new_chunkPos = (Vector3Int)chunkArea.Dequeue();
             if (!Chunk.chunks.ContainsKey(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
 
-            if(Mathf.Abs(new_chunkPos.x - chunkPos.x) / (Chunk.CHUNK_WIDTH * BLOCK_SIZE) < renderDistance)
+            if(Mathf.Abs(new_chunkPos.x - chunkPos.x) / Chunk.CHUNK_WIDTH_WORLD < renderDistance)
             {
-                Vector3Int right = new_chunkPos + new Vector3Int((int)(Chunk.CHUNK_WIDTH * BLOCK_SIZE), 0, 0);
+                Vector3Int right = new_chunkPos + new Vector3Int(Chunk.CHUNK_WIDTH_WORLD, 0, 0);
                 if (!Chunk.chunks.ContainsKey(right)) { chunkArea.Enqueue(right); }
 
-                Vector3Int left = new_chunkPos - new Vector3Int((int)(Chunk.CHUNK_WIDTH * BLOCK_SIZE), 0, 0);
+                Vector3Int left = new_chunkPos - new Vector3Int(Chunk.CHUNK_WIDTH_WORLD, 0, 0);
                 if (!Chunk.chunks.ContainsKey(left)) { chunkArea.Enqueue(left); }
             }
 
-
-            if (Mathf.Abs(new_chunkPos.z - chunkPos.z) / (Chunk.CHUNK_LENGTH * BLOCK_SIZE) < renderDistance)
+            if (Mathf.Abs(new_chunkPos.z - chunkPos.z) / Chunk.CHUNK_LENGTH_WORLD < renderDistance)
             {
-                Vector3Int forward = new_chunkPos + new Vector3Int(0, 0, (int)(Chunk.CHUNK_LENGTH * BLOCK_SIZE));
+                Vector3Int forward = new_chunkPos + new Vector3Int(0, 0, Chunk.CHUNK_LENGTH_WORLD);
                 if (!Chunk.chunks.ContainsKey(forward)) { chunkArea.Enqueue(forward); }
 
-                Vector3Int back = new_chunkPos - new Vector3Int(0, 0, (int)(Chunk.CHUNK_LENGTH * BLOCK_SIZE));
+                Vector3Int back = new_chunkPos - new Vector3Int(0, 0, Chunk.CHUNK_LENGTH_WORLD);
                 if (!Chunk.chunks.ContainsKey(back)) { chunkArea.Enqueue(back); }
             }
 
-            if (Mathf.Abs(new_chunkPos.y - chunkPos.y) / (Chunk.CHUNK_HEIGHT * BLOCK_SIZE) < renderDistance)
+            if (Mathf.Abs(new_chunkPos.y - chunkPos.y) / Chunk.CHUNK_HEIGHT_WORLD < (renderDistance / 2))
             {
-                Vector3Int up = new_chunkPos + new Vector3Int(0, (int)(Chunk.CHUNK_HEIGHT * BLOCK_SIZE), 0);
+                Vector3Int up = new_chunkPos + new Vector3Int(0, Chunk.CHUNK_HEIGHT_WORLD, 0);
                 if (!Chunk.chunks.ContainsKey(up)) { chunkArea.Enqueue(up); }
 
-                Vector3Int down = new_chunkPos - new Vector3Int(0, (int)(Chunk.CHUNK_HEIGHT * BLOCK_SIZE), 0);
+                Vector3Int down = new_chunkPos - new Vector3Int(0, Chunk.CHUNK_HEIGHT_WORLD, 0);
                 if (!Chunk.chunks.ContainsKey(down)) { chunkArea.Enqueue(down); }
             }
 

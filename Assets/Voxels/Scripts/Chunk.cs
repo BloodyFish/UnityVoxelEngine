@@ -19,6 +19,12 @@ public class Chunk
     public const byte CHUNK_LENGTH = 64;
     public const byte CHUNK_HEIGHT = 64;
 
+    public static readonly int CHUNK_WIDTH_WORLD = (int)(CHUNK_WIDTH * Generation.BLOCK_SIZE);
+    public static readonly int CHUNK_HEIGHT_WORLD = (int)(CHUNK_HEIGHT* Generation.BLOCK_SIZE);
+    public static readonly int CHUNK_LENGTH_WORLD = (int)(CHUNK_LENGTH * Generation.BLOCK_SIZE);
+
+
+
     public enum Direction { RIGHT = 0, LEFT = 1, FORWARD = 2, BACK = 3, UP = 4, DOWN = 5}
     public static readonly Direction chunkDirection;
 
@@ -35,16 +41,6 @@ public class Chunk
     private bool isMeshing = true;
     private bool containsVoxel = false;
 
-    Vector3Int[] directions =
-    {
-        new Vector3Int(1, 0, 0), // Vector3Int RIGHT
-        new Vector3Int(-1, 0, 0), // Vector3Int LEFT
-        new Vector3Int(0, 0, 1), // Vector3Int FORWARD
-        new Vector3Int(0, 0, -1), //Vector3Int BACK
-        new Vector3Int(0, 1, 0), // Vector3Int UP
-        new Vector3Int(0, -1, 0), // Vector3Int DOWN
-
-    };
 
 
     public void MarkDirty()

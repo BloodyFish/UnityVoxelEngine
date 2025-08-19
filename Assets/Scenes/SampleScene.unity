@@ -546,7 +546,7 @@ MonoBehaviour:
   underwaterBlock: {fileID: 11400000, guid: 13674a44c746c8942b07f97aa83082b2, type: 2}
   stoneBlock: {fileID: 11400000, guid: 2b2a09e9cdb2f8942a861ca19b65574e, type: 2}
   dirtBlock: {fileID: 11400000, guid: 93275bc23a4948f4caefe681a2732ef6, type: 2}
-  renderDistance: 8
+  renderDistance: 16
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
