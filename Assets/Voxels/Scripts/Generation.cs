@@ -24,10 +24,18 @@ public class Generation : MonoBehaviour
     static Noise contentalness_1, contentalness_2, contentalness_3;
 
     //PLAYER STUFF
-    private Transform player;
+    public Transform player;
     private Chunk currentChunk;
     public int renderDistance = 4;
     private Stack chunksToGenerate = new Stack();
+
+    Vector3Int[] chunkDirections =
+    {
+        new Vector3Int(Chunk.CHUNK_WIDTH_WORLD, 0, 0),
+        new Vector3Int(0, 0, Chunk.CHUNK_LENGTH_WORLD),
+        new Vector3Int(0, Chunk.CHUNK_HEIGHT_WORLD, 0)
+    };
+
 
     private void Awake()
     {
@@ -59,7 +67,17 @@ public class Generation : MonoBehaviour
 
     private void Update()
     {
+        // "OFFLOAD" CHUNKS THAT ARE OUTSIDE THE RENDER DISTANCE
+        foreach (Chunk activeChunk in Chunk.chunks.Values)
+        {
+            if (activeChunk.chunkObj.activeInHierarchy && !Chunk.IsInRenderDistance(activeChunk.chunkPos))
+            {
+                activeChunk.chunkObj.SetActive(false);
+            }
+        }
 
+        // FIGURE OUT WHICH CHUNK IS THE CHUNK THE PLAYER IS CURRENTLY IN
+        // ENABLE A MESH COLLIDER ON THIS CHUNK AND DISABLE THE COLLIDER ON THE PREVIOUS
         if (Chunk.chunks.ContainsKey(GetChunkPosRelativeToPlayer()))
         {
             if(currentChunk != null && currentChunk.chunkObj.GetComponent<MeshCollider>().enabled)
@@ -71,19 +89,24 @@ public class Generation : MonoBehaviour
             if(currentChunk.ContainsVoxel && currentChunk.isGenerated && !currentChunk.chunkObj.GetComponent<MeshCollider>().enabled) 
             { 
                 currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = true;
-            }
+                chunksToGenerate.Clear();
+                StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
 
-            
+            }
         }
         else { new Chunk(GetChunkPosRelativeToPlayer()); }
-        StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
 
+        // ACTUALLY MESH 
         while(chunksToGenerate.Count > 0)
         {
             Vector3Int chunkPos = (Vector3Int)chunksToGenerate.Pop();
-            new Chunk(chunkPos);
+            if(Chunk.IsInRenderDistance(chunkPos)) 
+            {
+                new Chunk(chunkPos);
+            }
         }
 
+ 
         if (Chunk.dirtyChunks.Count == 0) return;
 
         foreach (var chunk in Chunk.dirtyChunks)
@@ -97,6 +120,33 @@ public class Generation : MonoBehaviour
     private IEnumerator InititalizeChunks(Vector3Int chunkPos)
     {
         Performance.Reset();
+
+        // FLOOD-FILL APROACH
+        Queue chunkArea = new Queue();
+        chunkArea.Enqueue(chunkPos);
+
+        while(chunkArea.Count > 0)
+        {
+            Vector3Int new_chunkPos = (Vector3Int)chunkArea.Dequeue();
+            if (!Chunk.chunks.ContainsKey(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
+
+
+            if (Chunk.IsInRenderDistance(new_chunkPos))
+            {
+                foreach(Vector3Int dir in chunkDirections)
+                {
+                    Vector3Int dir_one = new_chunkPos + dir;
+                    Vector3Int dir_two = new_chunkPos - dir;
+
+                    if (!Chunk.chunks.ContainsKey(dir_one)) { chunkArea.Enqueue(dir_one); }
+                    if (!Chunk.chunks.ContainsKey(dir_two)) { chunkArea.Enqueue(dir_two); }
+
+                    //yield return null;
+                }
+            }
+
+            yield return null;
+        }
 
         /*Vector3Int basePos = Vector3Int.zero;
 
@@ -117,47 +167,6 @@ public class Generation : MonoBehaviour
                 }
             }
         }*/
-
-        // FLOOD-FILL APROACH
-        Queue chunkArea = new Queue();
-        chunkArea.Enqueue(chunkPos);
-
-
-        while(chunkArea.Count > 0)
-        {
-            Vector3Int new_chunkPos = (Vector3Int)chunkArea.Dequeue();
-            if (!Chunk.chunks.ContainsKey(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
-
-            if(Mathf.Abs(new_chunkPos.x - chunkPos.x) / Chunk.CHUNK_WIDTH_WORLD < renderDistance)
-            {
-                Vector3Int right = new_chunkPos + new Vector3Int(Chunk.CHUNK_WIDTH_WORLD, 0, 0);
-                if (!Chunk.chunks.ContainsKey(right)) { chunkArea.Enqueue(right); }
-
-                Vector3Int left = new_chunkPos - new Vector3Int(Chunk.CHUNK_WIDTH_WORLD, 0, 0);
-                if (!Chunk.chunks.ContainsKey(left)) { chunkArea.Enqueue(left); }
-            }
-
-            if (Mathf.Abs(new_chunkPos.z - chunkPos.z) / Chunk.CHUNK_LENGTH_WORLD < renderDistance)
-            {
-                Vector3Int forward = new_chunkPos + new Vector3Int(0, 0, Chunk.CHUNK_LENGTH_WORLD);
-                if (!Chunk.chunks.ContainsKey(forward)) { chunkArea.Enqueue(forward); }
-
-                Vector3Int back = new_chunkPos - new Vector3Int(0, 0, Chunk.CHUNK_LENGTH_WORLD);
-                if (!Chunk.chunks.ContainsKey(back)) { chunkArea.Enqueue(back); }
-            }
-
-            if (Mathf.Abs(new_chunkPos.y - chunkPos.y) / Chunk.CHUNK_HEIGHT_WORLD < (renderDistance / 2))
-            {
-                Vector3Int up = new_chunkPos + new Vector3Int(0, Chunk.CHUNK_HEIGHT_WORLD, 0);
-                if (!Chunk.chunks.ContainsKey(up)) { chunkArea.Enqueue(up); }
-
-                Vector3Int down = new_chunkPos - new Vector3Int(0, Chunk.CHUNK_HEIGHT_WORLD, 0);
-                if (!Chunk.chunks.ContainsKey(down)) { chunkArea.Enqueue(down); }
-            }
-
-
-            yield return null;
-        }
 
         // Got a Null-Reference Exception when running the following code. I don't feel like looking over and trying to fix it as of now...
         // Out of sight out of mind, I guess...
@@ -188,6 +197,7 @@ public class Generation : MonoBehaviour
 
         return chunkPos;
     }
+
 
     private void PrintMetric(string label, Performance.PerformanceMetric metric)
     {
@@ -241,10 +251,13 @@ public class Generation : MonoBehaviour
         }
         foreach(var stackObj in chunksToGenerate)
         {
-            Vector3 center = (Vector3Int)stackObj + (size / 2);
+            if (Vector3.Distance(player.position, (Vector3Int)stackObj) < (Chunk.CHUNK_WIDTH_WORLD * renderDistance))
+            {
+                Vector3 center = (Vector3Int)stackObj + (size / 2);
 
-            Gizmos.color = Color.blue;
-            Gizmos.DrawWireCube(center, size);
+                Gizmos.color = Color.blue;
+                Gizmos.DrawWireCube(center, size);
+            }
 
         }
     }

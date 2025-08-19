@@ -329,4 +329,10 @@ public class Chunk
 
         return adjacentChunks;
     }
+
+    public static bool IsInRenderDistance(Vector3Int chunkPosToCompare)
+    {
+        return (Vector3.Distance(Generation.instance.player.position, chunkPosToCompare) < Generation.instance.renderDistance * Chunk.CHUNK_WIDTH_WORLD);
+
+    }
 }
