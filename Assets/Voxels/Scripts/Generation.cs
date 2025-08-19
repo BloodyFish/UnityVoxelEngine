@@ -97,7 +97,7 @@ public class Generation : MonoBehaviour
 
         Vector3Int basePos = Vector3Int.zero;
 
-        for(int y = (renderDistance / 2); y > -(renderDistance / 2); y--)
+        /*for(int y = (renderDistance / 2); y > -(renderDistance / 2); y--)
         {
             for(int x = renderDistance; x > -renderDistance; x--)
             {
@@ -113,9 +113,48 @@ public class Generation : MonoBehaviour
                     yield return null;
                 }
             }
+        }*/
+
+        // FLOOD-FILL APROACH
+        Queue chunkArea = new Queue();
+        chunkArea.Enqueue(chunkPos);
+
+        while(chunkArea.Count > 0)
+        {
+            Vector3Int new_chunkPos = (Vector3Int)chunkArea.Dequeue();
+            if (!Chunk.chunks.ContainsKey(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
+
+            if(Mathf.Abs(new_chunkPos.x - chunkPos.x) / (Chunk.CHUNK_WIDTH * BLOCK_SIZE) < renderDistance)
+            {
+                Vector3Int right = new_chunkPos + new Vector3Int((int)(Chunk.CHUNK_WIDTH * BLOCK_SIZE), 0, 0);
+                if (!Chunk.chunks.ContainsKey(right)) { chunkArea.Enqueue(right); }
+
+                Vector3Int left = new_chunkPos - new Vector3Int((int)(Chunk.CHUNK_WIDTH * BLOCK_SIZE), 0, 0);
+                if (!Chunk.chunks.ContainsKey(left)) { chunkArea.Enqueue(left); }
+            }
+
+
+            if (Mathf.Abs(new_chunkPos.z - chunkPos.z) / (Chunk.CHUNK_LENGTH * BLOCK_SIZE) < renderDistance)
+            {
+                Vector3Int forward = new_chunkPos + new Vector3Int(0, 0, (int)(Chunk.CHUNK_LENGTH * BLOCK_SIZE));
+                if (!Chunk.chunks.ContainsKey(forward)) { chunkArea.Enqueue(forward); }
+
+                Vector3Int back = new_chunkPos - new Vector3Int(0, 0, (int)(Chunk.CHUNK_LENGTH * BLOCK_SIZE));
+                if (!Chunk.chunks.ContainsKey(back)) { chunkArea.Enqueue(back); }
+            }
+
+            if (Mathf.Abs(new_chunkPos.y - chunkPos.y) / (Chunk.CHUNK_HEIGHT * BLOCK_SIZE) < renderDistance)
+            {
+                Vector3Int up = new_chunkPos + new Vector3Int(0, (int)(Chunk.CHUNK_HEIGHT * BLOCK_SIZE), 0);
+                if (!Chunk.chunks.ContainsKey(up)) { chunkArea.Enqueue(up); }
+
+                Vector3Int down = new_chunkPos - new Vector3Int(0, (int)(Chunk.CHUNK_HEIGHT * BLOCK_SIZE), 0);
+                if (!Chunk.chunks.ContainsKey(down)) { chunkArea.Enqueue(down); }
+            }
+
+
+            yield return null;
         }
-
-
 
         // Got a Null-Reference Exception when running the following code. I don't feel like looking over and trying to fix it as of now...
         // Out of sight out of mind, I guess...
