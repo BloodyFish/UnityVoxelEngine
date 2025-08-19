@@ -62,7 +62,10 @@ public class Generation : MonoBehaviour
 
         if (Chunk.chunks.ContainsKey(GetChunkPosRelativeToPlayer()))
         {
-            //if(currentChunk != null && currentChunk.chunkObj.GetComponent<MeshCollider>() != null) { currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = false; }
+            if(currentChunk != null && currentChunk.chunkObj.GetComponent<MeshCollider>().enabled)
+            {
+                if (currentChunk != Chunk.chunks[GetChunkPosRelativeToPlayer()]) { currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = false; }
+            }
 
             currentChunk = Chunk.chunks[GetChunkPosRelativeToPlayer()];
             if(currentChunk.ContainsVoxel && currentChunk.isGenerated && !currentChunk.chunkObj.GetComponent<MeshCollider>().enabled) 
