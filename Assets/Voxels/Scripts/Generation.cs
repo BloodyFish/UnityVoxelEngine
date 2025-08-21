@@ -28,6 +28,7 @@ public class Generation : MonoBehaviour
     private Chunk currentChunk;
     public int renderDistance = 4;
     private Stack chunksToGenerate = new Stack();
+    private Coroutine chunkInitCoroutine;
 
     Vector3Int[] chunkDirections =
     {
@@ -67,6 +68,8 @@ public class Generation : MonoBehaviour
 
     private void Update()
     {
+        Vector3Int playerChunkPos = GetChunkPosRelativeToPlayer();
+
         // "OFFLOAD" CHUNKS THAT ARE OUTSIDE THE RENDER DISTANCE
         foreach (Chunk activeChunk in Chunk.chunks.Values)
         {
@@ -78,33 +81,32 @@ public class Generation : MonoBehaviour
 
         // FIGURE OUT WHICH CHUNK IS THE CHUNK THE PLAYER IS CURRENTLY IN
         // ENABLE A MESH COLLIDER ON THIS CHUNK AND DISABLE THE COLLIDER ON THE PREVIOUS
-        if (Chunk.chunks.ContainsKey(GetChunkPosRelativeToPlayer()))
+        if (Chunk.chunks.ContainsKey(playerChunkPos))
         {
             if(currentChunk != null && currentChunk.chunkObj.GetComponent<MeshCollider>().enabled)
             {
-                if (currentChunk != Chunk.chunks[GetChunkPosRelativeToPlayer()]) { currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = false; }
+                if (currentChunk != Chunk.chunks[playerChunkPos]) 
+                { 
+                    currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = false;
+                    StopCoroutine(chunkInitCoroutine);
+                }
             }
 
-            currentChunk = Chunk.chunks[GetChunkPosRelativeToPlayer()];
+            // SET CURRENT CHUNK / COLLIDER AND START INITIALZING CHUNKS
+            currentChunk = Chunk.chunks[playerChunkPos];
             if(currentChunk.isGenerated && !currentChunk.chunkObj.GetComponent<MeshCollider>().enabled) 
-            { 
-                currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = true;
-                chunksToGenerate.Clear();
-                StopAllCoroutines();
-                StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
-
+            {
+                if (currentChunk.ContainsVoxel) { currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = true; }
+                chunkInitCoroutine = StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
             }
         }
-        else { new Chunk(GetChunkPosRelativeToPlayer()); }
+        else { new Chunk(playerChunkPos); }
 
         // ACTUALLY MESH 
         while(chunksToGenerate.Count > 0)
         {
             Vector3Int chunkPos = (Vector3Int)chunksToGenerate.Pop();
-            if(Chunk.IsInRenderDistance(chunkPos)) 
-            {
-                new Chunk(chunkPos);
-            }
+            if (!Chunk.chunks.ContainsKey(chunkPos)) { new Chunk(chunkPos); }
         }
 
  
@@ -132,17 +134,18 @@ public class Generation : MonoBehaviour
 
             if (Chunk.IsInRenderDistance(new_chunkPos))
             {
-                if (!Chunk.chunks.ContainsKey(new_chunkPos) || !chunkArea.Contains(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
+                // Not putting !Chunk.chunks.ContainsKey(new_chunkPos) allows us to continuet to traverse chunks that exist to get further positions
+                // Otherwise, if we are standing on a chunk we've discovered, the floodfill wont work
+                if (!chunksToGenerate.Contains(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
 
                 foreach (Vector3Int dir in chunkDirections)
                 {
                     Vector3Int dir_one = new_chunkPos + dir;
                     Vector3Int dir_two = new_chunkPos - dir;
-
-                    if (!Chunk.chunks.ContainsKey(dir_one) || !chunkArea.Contains(dir_one)) { chunkArea.Enqueue(dir_one); }
-                    if (!Chunk.chunks.ContainsKey(dir_two) || !chunkArea.Contains(dir_two)) { chunkArea.Enqueue(dir_two); }
-
-                    yield return null;
+                    // Not using !Chunk.chunks.ContainsKey(dir_one) or !Chunk.chunks.ContainsKey(dir_two) allows us to continuet to traverse chunks that exist to get further positions
+                    // Otherwise, if we are standing on a chunk we've discovered, the floodfill wont work
+                    if (!chunkArea.Contains(dir_one)) { chunkArea.Enqueue(dir_one); }
+                    if (!chunkArea.Contains(dir_two)) { chunkArea.Enqueue(dir_two); }
                 }
             }
 
@@ -243,16 +246,20 @@ public class Generation : MonoBehaviour
     private void OnDrawGizmos()
     {
         Vector3 size = new Vector3(Chunk.CHUNK_WIDTH, Chunk.CHUNK_HEIGHT, Chunk.CHUNK_LENGTH) * BLOCK_SIZE;
+        Vector3 renderDist_size = size * renderDistance;
         if (currentChunk != null)
         {
             Vector3 center = currentChunk.chunkPos + (size / 2);
 
             Gizmos.color = Color.red;
             Gizmos.DrawWireCube(center, size);
+
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(center, renderDist_size.x); 
         }
         foreach(var stackObj in chunksToGenerate)
         {
-            if (Vector3.Distance(player.position, (Vector3Int)stackObj) < (Chunk.CHUNK_WIDTH_WORLD * renderDistance))
+            if (Vector3.Distance(player.position, (Vector3Int)stackObj) < (Chunk.CHUNK_WIDTH_WORLD * renderDistance) && !Chunk.chunks.ContainsKey((Vector3Int)stackObj))
             {
                 Vector3 center = (Vector3Int)stackObj + (size / 2);
 
@@ -261,6 +268,8 @@ public class Generation : MonoBehaviour
             }
 
         }
+
+
     }
 
 }

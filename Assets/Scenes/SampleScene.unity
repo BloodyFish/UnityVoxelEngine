@@ -442,7 +442,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ece66b02246203c45951653135a8fb29, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  inputSeed: TestSeed
+  inputSeed: 123456789
   seed: 0
   blockList: {fileID: 11400000, guid: e11aa234015dacb49ab4a67b64d1ccce, type: 2}
   continentalnessToHeight:
@@ -547,7 +547,7 @@ MonoBehaviour:
   stoneBlock: {fileID: 11400000, guid: 2b2a09e9cdb2f8942a861ca19b65574e, type: 2}
   dirtBlock: {fileID: 11400000, guid: 93275bc23a4948f4caefe681a2732ef6, type: 2}
   player: {fileID: 0}
-  renderDistance: 64
+  renderDistance: 16
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
