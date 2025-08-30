@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using Voxels.Scripts.Utils;
 
@@ -27,7 +28,8 @@ public class Generation : MonoBehaviour
     public Transform player;
     private Chunk currentChunk;
     public int renderDistance = 4;
-    private Stack chunksToGenerate = new Stack();
+    private Queue chunksToGenerate = new Queue();
+    private HashSet<Vector3Int> chunksToGenerate_hashSet = new HashSet<Vector3Int>();
     private Coroutine chunkInitCoroutine;
 
     Vector3Int[] chunkDirections =
@@ -88,13 +90,14 @@ public class Generation : MonoBehaviour
                 if (currentChunk != Chunk.chunks[playerChunkPos]) 
                 { 
                     currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = false;
+                    chunksToGenerate.Clear();
                     StopCoroutine(chunkInitCoroutine);
                 }
             }
 
             // SET CURRENT CHUNK / COLLIDER AND START INITIALZING CHUNKS
             currentChunk = Chunk.chunks[playerChunkPos];
-            if(currentChunk.isGenerated && !currentChunk.chunkObj.GetComponent<MeshCollider>().enabled) 
+            if(!currentChunk.chunkObj.GetComponent<MeshCollider>().enabled) 
             {
                 if (currentChunk.ContainsVoxel) { currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = true; }
                 chunkInitCoroutine = StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
@@ -102,10 +105,10 @@ public class Generation : MonoBehaviour
         }
         else { new Chunk(playerChunkPos); }
 
-        // ACTUALLY MESH 
+        // ACTUALLY CREATE THE CHUNKS 
         while(chunksToGenerate.Count > 0)
         {
-            Vector3Int chunkPos = (Vector3Int)chunksToGenerate.Pop();
+            Vector3Int chunkPos = (Vector3Int)chunksToGenerate.Dequeue();
             if (!Chunk.chunks.ContainsKey(chunkPos)) { new Chunk(chunkPos); }
         }
 
@@ -125,6 +128,7 @@ public class Generation : MonoBehaviour
         Performance.Reset();
 
         // FLOOD-FILL APROACH
+        HashSet<Vector3Int> visited = new HashSet<Vector3Int>();
         Queue chunkArea = new Queue();
         chunkArea.Enqueue(chunkPos);
 
@@ -132,45 +136,27 @@ public class Generation : MonoBehaviour
         {
             Vector3Int new_chunkPos = (Vector3Int)chunkArea.Dequeue();
 
-            if (Chunk.IsInRenderDistance(new_chunkPos))
-            {
-                // Not putting !Chunk.chunks.ContainsKey(new_chunkPos) allows us to continuet to traverse chunks that exist to get further positions
-                // Otherwise, if we are standing on a chunk we've discovered, the floodfill wont work
-                if (!chunksToGenerate.Contains(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
+            // Not putting !Chunk.chunks.ContainsKey(new_chunkPos) allows us to continue to traverse chunks that exist to get further positions
+            // Otherwise, if we are standing on a chunk we've discovered, the floodfill won't work
+            if (chunksToGenerate_hashSet.Add(new_chunkPos)) { chunksToGenerate.Enqueue(new_chunkPos); }
+            else if(Chunk.chunks.TryGetValue(new_chunkPos, out var chunk) && !chunk.ContainsVoxel) { continue; } // Don't branch from existing air chunks
 
-                foreach (Vector3Int dir in chunkDirections)
-                {
-                    Vector3Int dir_one = new_chunkPos + dir;
-                    Vector3Int dir_two = new_chunkPos - dir;
-                    // Not using !Chunk.chunks.ContainsKey(dir_one) or !Chunk.chunks.ContainsKey(dir_two) allows us to continuet to traverse chunks that exist to get further positions
-                    // Otherwise, if we are standing on a chunk we've discovered, the floodfill wont work
-                    if (!chunkArea.Contains(dir_one)) { chunkArea.Enqueue(dir_one); }
-                    if (!chunkArea.Contains(dir_two)) { chunkArea.Enqueue(dir_two); }
-                }
+            foreach (Vector3Int dir in chunkDirections)
+            {
+                Vector3Int dir_one = new_chunkPos + dir;
+                Vector3Int dir_two = new_chunkPos - dir;
+                // Not using !Chunk.chunks.ContainsKey(dir_one) or !Chunk.chunks.ContainsKey(dir_two) allows us to continue to traverse chunks that exist to get further positions
+                // Otherwise, if we are standing on a chunk we've discovered, the floodfill wont work
+
+                // Enqueue if each dir is NOT in the hash set (hash set will return true when it does not contain!)
+                if (Chunk.IsInRenderDistance(dir_one) && visited.Add(dir_one)) { chunkArea.Enqueue(dir_one); }
+                if (Chunk.IsInRenderDistance(dir_two) && visited.Add(dir_two)) { chunkArea.Enqueue(dir_two); }
+
             }
 
-            yield return null;
+            yield return new WaitForSeconds(0);
         }
 
-        /*Vector3Int basePos = Vector3Int.zero;
-
-        for(int y = (renderDistance / 2); y > -(renderDistance / 2); y--)
-        {
-            for(int x = renderDistance; x > -renderDistance; x--)
-            {
-                for(int  z = renderDistance; z > -renderDistance; z--)
-                {
-                    basePos.x = (int)(x * (Chunk.CHUNK_WIDTH * BLOCK_SIZE));
-                    basePos.z = (int)(z * (Chunk.CHUNK_LENGTH * BLOCK_SIZE));
-                    basePos.y = (int)(y * (Chunk.CHUNK_HEIGHT * BLOCK_SIZE));
-
-                    Vector3Int new_chunkPos = chunkPos + basePos;
-                    if (!Chunk.chunks.ContainsKey(new_chunkPos)) { chunksToGenerate.Push(new_chunkPos); }
-
-                    yield return null;
-                }
-            }
-        }*/
 
         // Got a Null-Reference Exception when running the following code. I don't feel like looking over and trying to fix it as of now...
         // Out of sight out of mind, I guess...
