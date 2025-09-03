@@ -11,6 +11,7 @@ public class Generation : MonoBehaviour
     [HideInInspector] public static System.Random random;
 
     public const float BLOCK_SIZE = 0.25f;
+    public static readonly float contenentalnessScale = 100 / BLOCK_SIZE;
 
 
     public BlockList blockList;
@@ -24,13 +25,14 @@ public class Generation : MonoBehaviour
 
     static Noise contentalness_1, contentalness_2, contentalness_3;
 
-    //PLAYER STUFF
+    //INFINTE GEN. STUFF
     public Transform player;
     private Chunk currentChunk;
     public int renderDistance = 4;
-    private Queue chunksToGenerate = new Queue();
-    private HashSet<Vector3Int> chunksToGenerate_hashSet = new HashSet<Vector3Int>();
-    private Coroutine chunkInitCoroutine;
+    private Queue<Vector3Int> chunksToGenerate = new Queue<Vector3Int>();
+
+    private const int MAX_GENERATION_COROUTINES = 4;
+    private  Queue<Coroutine> chunkInitCoroutines = new Queue<Coroutine>();
 
     Vector3Int[] chunkDirections =
     {
@@ -90,8 +92,6 @@ public class Generation : MonoBehaviour
                 if (currentChunk != Chunk.chunks[playerChunkPos]) 
                 { 
                     currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = false;
-                    chunksToGenerate.Clear();
-                    StopCoroutine(chunkInitCoroutine);
                 }
             }
 
@@ -99,8 +99,17 @@ public class Generation : MonoBehaviour
             currentChunk = Chunk.chunks[playerChunkPos];
             if(!currentChunk.chunkObj.GetComponent<MeshCollider>().enabled) 
             {
+                print("Switched Chunks");
                 if (currentChunk.ContainsVoxel) { currentChunk.chunkObj.GetComponent<MeshCollider>().enabled = true; }
-                chunkInitCoroutine = StartCoroutine(InititalizeChunks(currentChunk.chunkPos));
+
+                if (chunkInitCoroutines.Count < MAX_GENERATION_COROUTINES) 
+                { 
+                    chunkInitCoroutines.Enqueue(StartCoroutine(InititalizeChunks(currentChunk.chunkPos))); 
+                }
+                else
+                {
+                    StopCoroutine(chunkInitCoroutines.Dequeue());
+                }
             }
         }
         else { new Chunk(playerChunkPos); }
@@ -108,7 +117,8 @@ public class Generation : MonoBehaviour
         // ACTUALLY CREATE THE CHUNKS 
         while(chunksToGenerate.Count > 0)
         {
-            Vector3Int chunkPos = (Vector3Int)chunksToGenerate.Dequeue();
+            Vector3Int chunkPos = chunksToGenerate.Dequeue();
+
             if (!Chunk.chunks.ContainsKey(chunkPos)) { new Chunk(chunkPos); }
         }
 
@@ -129,17 +139,17 @@ public class Generation : MonoBehaviour
 
         // FLOOD-FILL APROACH
         HashSet<Vector3Int> visited = new HashSet<Vector3Int>();
-        Queue chunkArea = new Queue();
+        Queue<Vector3Int> chunkArea = new Queue<Vector3Int>();
         chunkArea.Enqueue(chunkPos);
 
         while(chunkArea.Count > 0)
         {
-            Vector3Int new_chunkPos = (Vector3Int)chunkArea.Dequeue();
+            Vector3Int new_chunkPos = chunkArea.Dequeue();
 
             // Not putting !Chunk.chunks.ContainsKey(new_chunkPos) allows us to continue to traverse chunks that exist to get further positions
             // Otherwise, if we are standing on a chunk we've discovered, the floodfill won't work
-            if (chunksToGenerate_hashSet.Add(new_chunkPos)) { chunksToGenerate.Enqueue(new_chunkPos); }
-            else if(Chunk.chunks.TryGetValue(new_chunkPos, out var chunk) && !chunk.ContainsVoxel) { continue; } // Don't branch from existing air chunks
+
+            if (!chunksToGenerate.Contains(new_chunkPos)) { chunksToGenerate.Enqueue(new_chunkPos); }
 
             foreach (Vector3Int dir in chunkDirections)
             {
@@ -149,12 +159,16 @@ public class Generation : MonoBehaviour
                 // Otherwise, if we are standing on a chunk we've discovered, the floodfill wont work
 
                 // Enqueue if each dir is NOT in the hash set (hash set will return true when it does not contain!)
-                if (Chunk.IsInRenderDistance(dir_one) && visited.Add(dir_one)) { chunkArea.Enqueue(dir_one); }
-                if (Chunk.IsInRenderDistance(dir_two) && visited.Add(dir_two)) { chunkArea.Enqueue(dir_two); }
+                // +/- Chunk.CHUNK_WORLD_HEIGHT just for some leeway in chunk generation (a chunk we want to generate could be just below the min hight, or over it)
+                if (dir_one.y <= (Spline.highestPoint * contenentalnessScale + Chunk.CHUNK_HEIGHT_WORLD) 
+                    && dir_one.y >= (Spline.lowestPoint * contenentalnessScale - Chunk.CHUNK_HEIGHT_WORLD)
+                    && Chunk.IsInRenderDistance(dir_one) && visited.Add(dir_one)) { chunkArea.Enqueue(dir_one); }
 
+                if (dir_two.y <= (Spline.highestPoint * contenentalnessScale + Chunk.CHUNK_HEIGHT_WORLD) 
+                    && dir_two.y >= (Spline.lowestPoint * contenentalnessScale - Chunk.CHUNK_HEIGHT_WORLD)
+                    && Chunk.IsInRenderDistance(dir_two) && visited.Add(dir_two)) { chunkArea.Enqueue(dir_two); }
             }
-
-            yield return new WaitForSeconds(0);
+            yield return new WaitForEndOfFrame();
         }
 
 

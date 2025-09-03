@@ -8,6 +8,9 @@ public class Spline
     private int splineLength;
     private const float STEP = 0.1f;
 
+    public static float highestPoint;
+    public static float lowestPoint;
+
     public Spline(AnimationCurve curve)
     {
         CreateSplineFromCurve(curve);
@@ -33,10 +36,16 @@ public class Spline
         Debug.Log("Creating Spline");
         splineLength = (int)(spline.keys[spline.keys.Length - 1].time / STEP); // 10 / STEP (0.1) = 100
 
+        highestPoint = spline.Evaluate(0);
+        lowestPoint = spline.Evaluate(0);
+
         for(int t = 0; t <= splineLength; t++)
         {
             float value = spline.Evaluate(t * STEP); 
             splineValues.TryAdd(t, value); // The values will be added as an integer going from 0 to 10 / STEP
+
+            if (value > highestPoint) { highestPoint = value; }
+            if(value < lowestPoint) { lowestPoint = value; }
         }
     }
 }

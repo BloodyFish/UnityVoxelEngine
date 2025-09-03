@@ -173,7 +173,7 @@ public class Chunk
             float contentalness = Generation.GetContenentalness(xCoord, zCoord);
 
             float slope = new float();
-            int yVal = (int)Mathf.Ceil(Generation.instance.continentalnessToHeight_spline.EvaluateAtPoint(contentalness, 100 / blockSize, out slope));
+            int yVal = (int)Mathf.Ceil(Generation.instance.continentalnessToHeight_spline.EvaluateAtPoint(contentalness, Generation.contenentalnessScale, out slope));
             //Debug.Log(slope);
 
             for (int y = 0; y < CHUNK_HEIGHT; y++)
