@@ -1,6 +1,6 @@
 # UnityVoxelEngine
 <img width="1782" height="867" alt="Image" src="https://github.com/user-attachments/assets/d1cd1ed6-853a-4347-bd7b-6da7c2ae9809" />
-This project is not being worked on. Please veiw [UnityVoxelEngine_v2](https://github.com/BloodyFish/UnityVoxelEngine_v2)
+This project is not being worked on. Please veiw [UnityVoxelEngine v2](https://github.com/BloodyFish/UnityVoxelEngine_v2)
 
 ## 👏 Special Thanks
 Threading made possible because of [Logyrac](https://github.com/Logyrac)
